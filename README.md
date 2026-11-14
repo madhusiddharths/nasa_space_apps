@@ -11,8 +11,9 @@ question: what is the safest route across the surface for astronauts and rovers?
 
 - Global CTX imagery at 5 m per pixel, draped over 200 m terrain
 - Terrain read from our own copy of the NASA/USGS elevation data
-- Two topography layers that can be shown together: colored elevation, and contour lines
-  drawn from our elevation data (interval 2000 m zoomed out to 50 m zoomed in, bold lines labelled in metres)
+- Contour lines drawn from our elevation data (interval 2000 m zoomed out to 50 m zoomed in,
+  bold lines labelled in metres), coloured to stand out from whatever is under them
+- Colored elevation, with a legend
 - Ground firmness: thermal inertia at 3 km per pixel, coloured in six classes from loose dust
   (may not bear weight) to bedrock, with a legend
 - Surface temperature for any season and time of day: a panel with season and local-time
@@ -23,11 +24,18 @@ question: what is the safest route across the surface for astronauts and rovers?
 - Rover traverses (Curiosity, Perseverance), IAU feature names, impact craters
 - Coordinate readout, area measurement, elevation profile, layer list, bookmarks
 
-**Layers**, each switched on from the layer list (firmness, ice and radiation show a legend):
+**The layer stack.** Three things are drawn, bottom to top: the CTX imagery (on or off), one
+data layer (or none), and the contour lines (on or off). The data layers are the coloured maps
+in the table below; switching one on switches the others off, so their colours never mix. The
+contour lines change colour to stay readable: blue over bare ground, light over the imagery,
+temperature and radiation, dark over ice, topography and firmness. Markers (traverses, feature
+names, craters) and the route draw on top.
+
+**Layers**, switched on from the layer list under "Data layer (one at a time)"; each shows a legend:
 
 | Layer | What it shows | Coverage |
 |---|---|---|
-| Topography | Colored elevation, and contour lines drawn from our elevation data (interval 2000 m zoomed out to 50 m zoomed in, bold lines labelled in metres) | Global |
+| Topography | Colored elevation, relief-shaded (streamed). Its legend is read from the map, so it is approximate | Global |
 | Ground firmness | Thermal inertia in six classes, from loose dust that may not bear weight to bedrock | Global, 3 km per pixel |
 | Water ice | Depth to the shallowest ice: white for polar surface ice, light-to-dark blue for buried ice within 1 m, 1–5 m and deeper than 5 m | Global, 3 km per pixel; buried ice 60°S to 60°N only |
 | Radiation | Modelled dose rate, sky blocked by terrain, the best natural shelters, and the Curiosity RAD measurement. Click the map for the dose at that spot | Gale crater |
@@ -67,9 +75,9 @@ python3 -m venv .venv
 
 On Windows, use `python` instead of `python3` and `.venv/Scripts/` instead of `.venv/bin/`.
 
-Then download the data, none of which is in git: elevation (15 GB), thermal inertia (52 MB)
-and water ice (214 MB). Commands are in [DATA_SOURCES.md](DATA_SOURCES.md). The radiation
-layer needs no download of its own.
+Then download the data that is not in git: elevation (15 GB) and thermal inertia (52 MB).
+Commands are in [DATA_SOURCES.md](DATA_SOURCES.md). The water ice, temperature and radiation
+layers need no download of their own.
 
 ## Run
 
@@ -93,13 +101,14 @@ changes under `web/` only need a browser refresh.
 | `temperature.py` | Surface temperature for a lon/lat box, season and time of day; draws its map tiles |
 | `temperature_data/` | Small maps and the lookup table `temperature.py` reads (in git, 16 MB) |
 | `web/temperature.js` | The temperature panel and click readout in the viewer |
-| `scripts/` | Rebuild `temperature_data/`, and check the temperature model against Curiosity |
+| `ice_data/` | The prebuilt water-ice grid `ice.py` reads (in git, 12 MB) |
+| `scripts/` | Rebuild `temperature_data/` and `ice_data/`, check the temperature model against Curiosity, and read the topography legend off the map |
 | `server.py` | Serves the viewer and each layer's map tiles, legend and values |
 | `tiles.py` | What every layer's tiles share: tiling scheme, tile size, PNG encoding |
 | `elevation.py` | Reads elevation for a lon/lat box, computes slope, cuts terrain tiles |
 | `contours.py` | Draws contour-line map tiles from the elevation file |
 | `firmness.py` | Reads thermal inertia for a lon/lat box, classifies ground firmness, draws its map tiles |
-| `ice.py` | Combines polar surface ice and SWIM buried ice into depth classes, draws its map tiles |
+| `ice.py` | Reads the water-ice depth classes for a lon/lat box from `ice_data/`, draws its map tiles |
 | `radiation.py` | Radiation dose rate, terrain shelter, dose along a route, map tiles |
 | `routing.py` | Astronaut routing: hazard levels from the layers, safest and quickest walk from A to B |
 | `web/routing.js` | The route planner panel and the route lines on the map |

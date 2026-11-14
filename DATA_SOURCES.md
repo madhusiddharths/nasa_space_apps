@@ -36,7 +36,7 @@ mkdir -p data/thermal_inertia && cd data/thermal_inertia && curl -L -C - -O http
 
 Dataset page: https://pds-geosciences.wustl.edu/missions/mgs/tes-timap.html
 
-Water ice (three SWIM maps, then the polar ice outlines):
+Water ice, needed only to rebuild `ice_data/` with `scripts/build_ice_grid.py` (three SWIM maps, then the polar ice outlines):
 
 ```bash
 mkdir -p data/water_ice && cd data/water_ice && curl -L -C - -O https://swim.psi.edu/output/SWIM4MIM/Global/Composite/SWIM4MIM_Ci_0_1.tif -O https://swim.psi.edu/output/SWIM4MIM/Global/Composite/SWIM4MIM_Ci_1_5.tif -O https://swim.psi.edu/output/SWIM4MIM/Global/Composite/SWIM4MIM_Ci_5.tif
@@ -81,6 +81,15 @@ mkdir -p data/temperature && cd data/temperature && curl -L -C - -O https://asc-
 ```
 
 Dataset page: https://astrogeology.usgs.gov/search/map/mars-themis-derived-global-thermal-inertia-mosaic
+
+## Already in the repo (`ice_data/`)
+
+Read by `ice.py`. Rebuild with `scripts/build_ice_grid.py` (not needed to run the app; it
+needs the SWIM maps and the polar ice outlines in `data/water_ice/`, commands above).
+
+| File | What it is | Source |
+|---|---|---|
+| `mars_ice_weights_20ppd.tif` | Water ice by depth, whole planet at 20 px/deg (3 km). Four bands: on the surface, within 1 m, 1 to 5 m, deeper than 5 m. Each value is 0 to 255 for a weight 0 to 1 that ice of that class is present (128 = SWIM score 0.3) | The three SWIM maps, smoothed, merged with the USGS polar ice units. SWIM project (PSI/NASA/JPL); Tanaka et al. 2014 |
 
 ## Already in the repo (`temperature_data/`)
 
@@ -171,5 +180,6 @@ tiles can be downloaded one at a time from https://murray-lab.caltech.edu/CTX/ (
   big-endian int16 in J m⁻² K⁻¹ s⁻¹ᐟ² ("tiu"), range 5 to 5,000, nodata 0, no data beyond ±87°.
   Row 0 is north. `firmness.py` reads it; the `.lbl` file is its description.
 - **SWIM ice files:** 7,200 × 2,400 px, 0.05°/px, lon -180 to 180, lat 60 to -60 only, float32
-  consistency score from -1 (no ice) to +1 (ice); exactly 0 means no information. `ice.py` merges
-  the three depths with the polar ice outlines (lon/lat GeoJSON) into one 7,200 × 3,600 class grid.
+  consistency score from -1 (no ice) to +1 (ice); exactly 0 means no information.
+  `scripts/build_ice_grid.py` merges the three depths with the polar ice outlines (lon/lat
+  GeoJSON) into the 7,200 × 3,600 grid in `ice_data/`, which is what `ice.py` reads.
