@@ -92,12 +92,13 @@
       });
 
       // ---- Terrain: HRSC + MOLA blended DEM, 200 m/px, read from the local file
-      // by server.py (levels 0-7). ----
+      // by server.py (levels 0-7). A tile is 257 x 257 heights in whole metres, sent as
+      // 16-bit integers (the browser undoes the gzip compression itself). ----
       const LocalElevationLayer = BaseElevationLayer.createSubclass({
         fetchTile(level, row, col, options) {
           return fetch(`/elevation/${level}/${row}/${col}?v=${TILES_VERSION}`, { signal: options && options.signal })
             .then((r) => r.arrayBuffer())
-            .then((buf) => ({ values: new Float32Array(buf), width: 257, height: 257, noDataValue: -32768 }));
+            .then((buf) => ({ values: Float32Array.from(new Int16Array(buf)), width: 257, height: 257, noDataValue: -32768 }));
         },
       });
       const marsElevation = new LocalElevationLayer({

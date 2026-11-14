@@ -2,6 +2,7 @@
 
 Run:  .venv/bin/uvicorn server:app --port 8000 --reload
 """
+import gzip
 from functools import lru_cache
 from typing import List, Optional
 
@@ -24,7 +25,9 @@ app = FastAPI()
 # Each cache holds its layer's most recently used tiles; a tile is 1 to 400 KB, so all of
 # them full come to about 300 MB. Every argument that changes the picture is part of the key.
 TILES_KEPT = 200
-elevation_tile_bytes = lru_cache(TILES_KEPT)(lambda level, row, col: elevation.tile(level, row, col).tobytes())
+# Terrain goes out as 16-bit integers (the heights are whole metres), gzip-compressed.
+elevation_tile_bytes = lru_cache(TILES_KEPT)(
+    lambda level, row, col: gzip.compress(elevation.tile(level, row, col).astype("<i2").tobytes(), 6))
 contour_png = lru_cache(TILES_KEPT)(contours.tile_png)
 firmness_png = lru_cache(TILES_KEPT)(firmness.tile_png)
 temperature_png = lru_cache(TILES_KEPT)(temperature.tile_png)
@@ -47,8 +50,9 @@ def tiles_version():
 
 @app.get("/elevation/{level}/{row}/{col}")
 def elevation_tile(level: int, row: int, col: int):
+    """257 x 257 heights in metres: little-endian int16, -32768 = no data, sent gzip-compressed."""
     return Response(elevation_tile_bytes(level, row, col), media_type="application/octet-stream",
-                    headers=tiles.CACHE_HEADERS)
+                    headers={**tiles.CACHE_HEADERS, "Content-Encoding": "gzip"})
 
 
 @app.get("/contours/{level}/{row}/{col}.png")

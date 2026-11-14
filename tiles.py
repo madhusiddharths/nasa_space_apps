@@ -13,7 +13,7 @@ TILE_PX = 512
 # Browsers keep tiles for a day (CACHE_HEADERS) under an address that ends in ?v=TILES_VERSION.
 # Raise the version whenever a change makes any tile look different, or browsers will go on
 # showing the tiles they saved.
-TILES_VERSION = "1"
+TILES_VERSION = "2"
 CACHE_HEADERS = {"Cache-Control": "public, max-age=86400"}
 
 
