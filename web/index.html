@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>Mars Base Layer</title>
+  <link rel="stylesheet" href="https://js.arcgis.com/4.26/esri/themes/dark/main.css" />
+  <script src="https://js.arcgis.com/4.26/"></script>
+  <style>
+    html, body, #viewDiv { padding: 0; margin: 0; height: 100%; width: 100%; background: #000; }
+    .esri-coordinate-conversion__conversions-view { margin: 0; }
+    #optionsDiv { position: absolute; bottom: 30px; left: 15px; right: 15px; z-index: 1; text-align: center; }
+    .buttonsContainer { max-width: 800px; margin: 0 auto; }
+    .buttonsContainer button {
+      background: #242424; padding: 6px 4px; border: none; font-size: 1rem; margin: 3px;
+      color: #d1d1d1; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); cursor: pointer;
+    }
+    .buttonsContainer button:hover { color: white; }
+  </style>
+</head>
+<body>
+  <div id="viewDiv"></div>
+  <div id="optionsDiv"><div class="buttonsContainer" id="bookmarkButtons"></div></div>
+
+  <script>
+    // Base layer: same services, layers, widgets and bookmarks as the Murray Lab
+    // CTX SceneView (https://murray-lab.caltech.edu/CTX/V01/SceneView/).
+    // Coordinate system for EVERYTHING: GCS_Mars_2000_Sphere (wkid 104971),
+    // lon -180..180 (east positive), lat -90..90, sphere radius 3396190 m.
+    const MARS_WKID = 104971;
+
+    require([
+      "esri/Map", "esri/Camera", "esri/views/SceneView",
+      "esri/layers/BaseElevationLayer", "esri/layers/support/TileInfo",
+      "esri/layers/TileLayer", "esri/layers/FeatureLayer",
+      "esri/layers/GeoJSONLayer", "esri/layers/GroupLayer",
+      "esri/widgets/CoordinateConversion", "esri/widgets/LayerList", "esri/widgets/AreaMeasurement3D",
+      "esri/widgets/Bookmarks", "esri/widgets/ElevationProfile", "esri/widgets/Expand",
+    ], (Map, Camera, SceneView, BaseElevationLayer, TileInfo, TileLayer, FeatureLayer, GeoJSONLayer, GroupLayer,
+        CoordinateConversion, LayerList, AreaMeasurement3D, Bookmarks, ElevationProfile, Expand) => {
+
+      // ---- Terrain: HRSC + MOLA blended DEM, 200 m/px, read from the local file
+      // by server.py. Tiling scheme matches the CTX imagery (levels 0-7). ----
+      const LocalElevationLayer = BaseElevationLayer.createSubclass({
+        fetchTile(level, row, col, options) {
+          return fetch(`/elevation/${level}/${row}/${col}`, { signal: options && options.signal })
+            .then((r) => r.arrayBuffer())
+            .then((buf) => ({ values: new Float32Array(buf), width: 257, height: 257, noDataValue: -32768 }));
+        },
+      });
+      const marsElevation = new LocalElevationLayer({
+        copyright: "Topography: NASA GSFC, DLR, USGS Astrogeology, JPL",
+        spatialReference: { wkid: MARS_WKID },
+        fullExtent: { xmin: -180, ymin: -90, xmax: 180, ymax: 90, spatialReference: { wkid: MARS_WKID } },
+        tileInfo: new TileInfo({
+          size: [512, 512],
+          origin: { x: -180, y: 90, spatialReference: { wkid: MARS_WKID } },
+          spatialReference: { wkid: MARS_WKID },
+          lods: Array.from({ length: 8 }, (_, level) => ({
+            level,
+            resolution: 0.3515625 / 2 ** level,
+            scale: 78760513.4003741 / 2 ** level,
+          })),
+        }),
+      });
+
+      const map = new Map({ ground: { layers: [marsElevation] }, layers: [] });
+
+      const view = new SceneView({
+        map,
+        container: "viewDiv",
+        qualityProfile: "high",
+        spatialReference: { wkid: MARS_WKID },
+        camera: {
+          position: { x: -75, y: -24, z: 1281525.766, spatialReference: MARS_WKID },
+          heading: 0,
+          tilt: 33,
+        },
+      });
+
+      // ---- Imagery: Murray Lab global CTX mosaic, 5 m/px ----
+      map.add(new TileLayer({
+        url: "https://astro.arcgis.com/arcgis/rest/services/OnMars/CTX1/MapServer",
+        copyright: "Imagery: NASA, JPL, MSSS, Caltech/Murray Lab, Esri",
+        title: "Mars MRO CTX Mosaic (NASA/JPL/MSSS/Caltech)",
+      }));
+
+      // ---- Vector layers ----
+      const outline3d = {
+        type: "simple",
+        symbol: {
+          type: "polygon-3d",
+          symbolLayers: [{
+            type: "fill",
+            material: { color: [255, 255, 255, 0.1] },
+            outline: { color: [0, 0, 0, 0.4], size: 5 },
+          }],
+        },
+      };
+      const label3d = (field, screenLength, calloutSize) => [{
+        labelPlacement: "above-center",
+        labelExpressionInfo: { expression: "$feature." + field },
+        symbol: {
+          type: "label-3d",
+          symbolLayers: [{
+            type: "text",
+            material: { color: [0, 0, 0, 0.9] },
+            halo: { size: 1, color: [255, 255, 255, 0.7] },
+            font: { size: 10 },
+          }],
+          verticalOffset: { screenLength, maxWorldLength: 500000, minWorldLength: 0 },
+          callout: { type: "line", size: calloutSize, color: [255, 255, 255, 0.9], border: { color: [0, 0, 0, 0.3] } },
+        },
+      }];
+      const fieldsPopup = (title, fields) => ({
+        title,
+        content: [{ type: "fields", fieldInfos: fields.map(([fieldName, label]) => ({ fieldName, label })) }],
+      });
+      const marker = (size) => ({ type: "simple", symbol: { type: "simple-marker", color: "white", size } });
+
+      map.add(new FeatureLayer({
+        url: "https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/Mars_Nomenclature_Mountains/FeatureServer",
+        definitionExpression: "type = 'Crater, craters'",
+        title: "Impact Craters",
+        visible: false,
+        renderer: outline3d,
+        labelingInfo: label3d("NAME", 40, 0.5),
+      }));
+
+      map.add(new GeoJSONLayer({
+        url: "data/MurrayLab_CTX_V01_Quad-Map.geojson",
+        title: "Global Mosaic Tile Map (Link to data)",
+        visible: false,
+        renderer: outline3d,
+        labelingInfo: label3d("Quad", 10, 0.1),
+        popupTemplate: fieldsPopup("{Quad}", [["Quad", "Quad"], ["Data", "Link To Data"]]),
+      }));
+
+      const msllayer = new GeoJSONLayer({
+        url: "data/MSL_3420.geojson",
+        renderer: marker(5),
+        copyright: "NASA/JPL/MSL",
+        title: "MSL Traverse (Through Sol 3420)",
+        popupTemplate: fieldsPopup("{sol}", [["Sol", "Mars Science Laboratory (Curiosity) Sol"]]),
+      });
+      const m2020layer = new GeoJSONLayer({
+        url: "data/Mars2020_0678.geojson",
+        renderer: marker(5),
+        copyright: "NASA/JPL/M2020",
+        title: "Mars 2020 Traverse (Through Sol 678)",
+        popupTemplate: fieldsPopup("{sol}", [["Sol", "Mars 2020 (Perseverance) Sol"]]),
+      });
+      map.add(new GroupLayer({ title: "Rover Traverse Maps", layers: [m2020layer, msllayer] }));
+
+      map.add(new GeoJSONLayer({
+        url: "data/mars-nomenclature.geojson",
+        renderer: marker(8),
+        copyright: "IAU WGPSN",
+        title: "Feature Names (IAU)",
+        visible: false,
+        labelingInfo: label3d("name", 40, 0.5),
+        popupTemplate: fieldsPopup("{name}", [
+          ["name", "Name"], ["type", "Type"], ["diameter", "Diameter"],
+          ["center_lon", "Center Longitude"], ["center_lat", "Center Latitude"],
+          ["origin", "Origin"], ["quad_name", "Quad Name"], ["link", "Link"],
+        ]),
+      }));
+
+      map.add(new TileLayer({
+        url: "https://astro.arcgis.com/arcgis/rest/services/OnMars/MColorDEM/MapServer",
+        copyright: "USGS Astrogeology Science Center, NASA, JPL, ESA, DLR, Esri",
+        title: "MOLA Topography (NASA/JPL/GSFC)",
+        visible: false,
+      }));
+
+      // ---- Team layers go here (see web/README.md) ----
+      // map.add(new TileLayer / ImageryTileLayer / GeoJSONLayer({...}));
+
+      // ---- Widgets ----
+      view.ui.move(["navigation-toggle", "compass", "zoom"], "top-right");
+      view.ui.empty("top-left");
+
+      const ccWidget = new CoordinateConversion({ view });
+      ccWidget.formats.find((f) => f.name === "xy").currentPattern = "Lat: Y°N, Long: X°E";
+      view.ui.add(new Expand({ view, content: ccWidget, expanded: window.innerWidth > 544 }), "top-left", 0);
+
+      const expand = (content) => new Expand({ view, content, expanded: false, group: "top-left" });
+      view.ui.add(expand(new AreaMeasurement3D({ view })), "top-left", 1);
+      view.ui.add(expand(new ElevationProfile({ view })), "top-left", 2);
+      view.ui.add(expand(new LayerList({ view })), "top-left", 3);
+      view.ui.add(expand(new Bookmarks({ view, editingEnabled: true })), "top-left", 4);
+
+      // ---- Bookmark buttons: [label, lon, lat, altitude m, heading, tilt] ----
+      const places = [
+        ["Jezero (Perseverance)", 77.49, 18.25, 3000, 335, 70],
+        ["Gale (Curiosity)", 137.06741, -4.37168, 7063, 145.54, 73.37],
+        ["Gusev (Spirit)", 175.666, -15.13246, 20012.988, 347.37, 56.97],
+        ["Meridiani (Opportunity)", -5.37351, -2.78455, 17323.085, 0.27, 57.98],
+        ["Olympus Mons", -148.81, 26.04, 287236, 115.63, 66.3],
+        ["Capri Chasma", -44.8278, -7.39171, 22722.708, 169.82, 66.52],
+        ["Coloe", 55.13, 42.18, 18892, 196.43, 69.53],
+        ["Shalbatana", -42.75, 5.95, 61368, 25.49, 65.45],
+        ["Valles Marineris", -50.95293, -15.12476, 36793.926, 282.33, 71.08],
+        ["Cavi Angusti", -79.03621, -77.0068, 3352.311, 55.75, 79.06],
+        ["Medusae Fossae", 175.94178, -0.77655, 22617.429, 334.18, 49.7],
+        ["Nicholson", -164.61068, -0.44171, 721.061, 10.99, 79.58],
+        ["Zunil", 166.47449, 7.4256, 7366.069, 312.69, 69.38],
+        ["Milankovič", -147.69002, 54.33878, 191.86, 223.29, 75.31],
+        ["Terra Sirenum", -157.35661, -39.46969, 1905.486, 343.47, 61.06],
+        ["Eberswalde", -33.30974, -23.69724, 4353.219, 244.68, 71.8],
+      ];
+      const buttons = document.getElementById("bookmarkButtons");
+      for (const [label, x, y, z, heading, tilt] of places) {
+        const camera = new Camera({ position: { x, y, z, spatialReference: MARS_WKID }, heading, tilt });
+        const b = document.createElement("button");
+        b.textContent = label;
+        b.addEventListener("click", () => {
+          view.goTo(camera, { speedFactor: 0.3 }).catch((e) => { if (e.name !== "AbortError") console.error(e); });
+        });
+        buttons.appendChild(b);
+      }
+
+      // Handles for teammates / console debugging.
+      window.marsMap = map;
+      window.marsView = view;
+    });
+  </script>
+</body>
+</html>
