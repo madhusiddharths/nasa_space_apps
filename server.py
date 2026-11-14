@@ -1,4 +1,3 @@
-"""Serves the viewer (web/) plus terrain, contour-line, ground-firmness and surface-temperature tiles from local data.
 """Serves the viewer (web/) and, from local data, each layer's map tiles, legend and values.
 
 Run:  .venv/bin/uvicorn server:app --port 8000 --reload
@@ -47,6 +46,8 @@ def firmness_legend():
     return firmness.legend()
 
 
+# ---- Surface temperature (temperature.py) ----
+
 def _stat(stat: str):
     return stat if stat in temperature.STATS else None        # anything else means "at local_time"
 
@@ -70,6 +71,8 @@ def temperature_range(west: float, south: float, east: float, north: float,
 def temperature_point(lon: float, lat: float, ls: float = 0):
     """Ground properties and the 24-hour temperature cycle (kelvin) at one spot."""
     return temperature.diurnal_cycle(lon, lat, ls)
+
+
 # ---- Water ice (ice.py) ----
 
 @app.get("/ice/{level}/{row}/{col}.png")
