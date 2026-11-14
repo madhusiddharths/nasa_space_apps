@@ -16,7 +16,8 @@ The base layer: the whole planet in 3D, modelled on the
 - Ground firmness: thermal inertia at 3 km per pixel, coloured in six classes from loose dust
   (may not bear weight) to bedrock, with a legend
 - Water ice: depth to the shallowest ice at 3 km per pixel, white for polar surface ice and
-  light-to-dark blue for buried ice within 1 m, 1–5 m and deeper than 5 m, with a legend
+  light-to-dark blue for buried ice within 1 m, 1–5 m and deeper than 5 m, with a legend.
+  Large areas are smoothed, small patches are kept, and the colour is shaded with the terrain
 - Rover traverses (Curiosity, Perseverance), IAU feature names, impact craters
 - Coordinate readout, area measurement, elevation profile, layer list, bookmarks
 - Python helpers to read elevation and compute slope for any area
@@ -100,7 +101,9 @@ reachable = (depth == 0) | (depth == 1)           # ice on the surface or within
 ```
 
 Buried ice is a SWIM consistency score of 0.3 or more, not a measured amount, and is mapped
-only between 60°S and 60°N. Between 60° and the polar ice nothing is mapped.
+only between 60°S and 60°N. Between 60° and the polar ice nothing is mapped. The classes come
+from the same smoothed data as the map: every source ice pixel is included, and smoothing adds
+2–11% more area per depth by filling small gaps.
 
 To combine layers for routing, put each one on the same lon/lat box and array shape.
 
