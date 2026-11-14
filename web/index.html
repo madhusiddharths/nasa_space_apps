@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>Mars Base Layer</title>
+  <title>Interplanetary Survival Guide: Mars</title>
   <link rel="stylesheet" href="https://js.arcgis.com/4.26/esri/themes/dark/main.css" />
   <script src="https://js.arcgis.com/4.26/"></script>
   <style>
@@ -16,34 +16,29 @@
       color: #d1d1d1; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); cursor: pointer;
     }
     .buttonsContainer button:hover { color: white; }
-    .legend { background: #242424; color: #d1d1d1; padding: 8px 10px; font-size: 12px; line-height: 1.5; max-width: 250px; }
+    /* Layer legends: stacked top-right, each shown only while its layer is on. */
+    .legend { background: #242424; color: #d1d1d1; padding: 8px 10px; font-size: 12px; line-height: 1.5; width: 250px; }
     .legend b { color: white; }
     .legend i { display: inline-block; width: 12px; height: 12px; margin-right: 6px; vertical-align: -2px; }
-    /* Radiation layer legend */
-    #radiationPanel {
-      position: absolute; top: 15px; right: 60px; z-index: 1; width: 250px; padding: 10px 12px;
-      background: rgba(36, 36, 36, 0.92); color: #e0e0e0; font: 13px/1.4 "Avenir Next", Arial, sans-serif;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); display: none;
-    }
-    #radiationPanel h3 { margin: 0 0 6px; font-size: 14px; color: #fff; }
-    #radiationPanel .ramp { height: 10px; margin: 4px 0 2px; }
-    #radiationPanel .ticks { display: flex; justify-content: space-between; font-size: 11px; color: #b0b0b0; }
-    #radiationPanel .note { font-size: 11px; color: #b0b0b0; margin-top: 6px; }
-    #radiationPanel table { width: 100%; border-collapse: collapse; margin-top: 6px; }
-    #radiationPanel td { padding: 1px 0; }
-    #radiationPanel td:last-child { text-align: right; color: #fff; font-variant-numeric: tabular-nums; }
+    .legend .ramp { height: 10px; margin: 4px 0 2px; }
+    .legend .ticks { display: flex; justify-content: space-between; font-size: 11px; color: #b0b0b0; }
+    .legend .note { font-size: 11px; color: #b0b0b0; margin-top: 6px; }
+    .legend table { width: 100%; border-collapse: collapse; }
+    .legend td { padding: 1px 0; }
+    .legend td:last-child { text-align: right; color: white; font-variant-numeric: tabular-nums; }
   </style>
 </head>
 <body>
   <div id="viewDiv"></div>
-  <div id="radiationPanel">
-    <h3>Radiation (Gale crater)</h3>
+  <!-- Radiation legend. The scale ends mirror DOSE_SCALE and SHELTER_SCALE in radiation.py. -->
+  <div id="radiationLegend" class="legend" hidden>
+    <b>Radiation (Gale crater)</b>
     <div id="radDoseLegend">
       Dose rate, mSv per day
       <div class="ramp" style="background: linear-gradient(90deg, #440154, #3b528b, #21918c, #5ec962, #fde725)"></div>
       <div class="ticks"><span>&le; 0.60</span><span>0.70</span><span>&ge; 0.80</span></div>
     </div>
-    <div id="radShelterLegend" style="margin-top: 6px">
+    <div id="radShelterLegend">
       Sky blocked by terrain
       <div class="ramp" style="background: linear-gradient(90deg, rgba(255,255,255,0), #40e0d0, #0060a0)"></div>
       <div class="ticks"><span>&le; 5%</span><span>15%</span><span>&ge; 25%</span></div>
@@ -57,8 +52,9 @@
   <div id="optionsDiv"><div class="buttonsContainer" id="bookmarkButtons"></div></div>
 
   <script>
-    // Base layer: same services, layers, widgets and bookmarks as the Murray Lab
+    // Base map: same services, layers, widgets and bookmarks as the Murray Lab
     // CTX SceneView (https://murray-lab.caltech.edu/CTX/V01/SceneView/).
+    // On top of it, our own layers, drawn by server.py from local data.
     // Coordinate system for EVERYTHING: GCS_Mars_2000_Sphere (wkid 104971),
     // lon -180..180 (east positive), lat -90..90, sphere radius 3396190 m.
     const MARS_WKID = 104971;
@@ -84,6 +80,21 @@
           resolution: 0.3515625 / 2 ** level,
           scale: 78760513.4003741 / 2 ** level,
         })),
+      });
+
+      // A layer whose PNG tiles server.py draws at /<path>/<level>/<row>/<col>.png.
+      // Off by default; `levels` is how many zoom levels the server can draw.
+      const ServerTiles = BaseTileLayer.createSubclass({
+        properties: { path: null },
+        getTileUrl(level, row, col) { return `/${this.path}/${level}/${row}/${col}.png`; },
+      });
+      const serverTiles = (path, levels, properties) => new ServerTiles({
+        path,
+        spatialReference: { wkid: MARS_WKID },
+        fullExtent: MARS_EXTENT,
+        tileInfo: marsTileInfo(levels),
+        visible: false,
+        ...properties,
       });
 
       // ---- Terrain: HRSC + MOLA blended DEM, 200 m/px, read from the local file
@@ -157,7 +168,8 @@
         title,
         content: [{ type: "fields", fieldInfos: fields.map(([fieldName, label]) => ({ fieldName, label })) }],
       });
-      const marker = (size) => ({ type: "simple", symbol: { type: "simple-marker", color: "white", size } });
+      const marker = (size, color = "white", extra = {}) =>
+        ({ type: "simple", symbol: { type: "simple-marker", color, size, ...extra } });
 
       map.add(new FeatureLayer({
         url: "https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/Mars_Nomenclature_Mountains/FeatureServer",
@@ -214,83 +226,42 @@
         visible: false,
       }));
 
-      // Ground firmness: thermal inertia (TES, 3 km/px) coloured by surface class,
-      // drawn by server.py. Added before the contours so their lines stay on top.
-      const FirmnessLayer = BaseTileLayer.createSubclass({
-        getTileUrl: (level, row, col) => `/firmness/${level}/${row}/${col}.png`,
-      });
-      const firmnessLayer = new FirmnessLayer({
+      // ---- Our layers, drawn by server.py. Each Python module's docstring describes its
+      // data. Added in this order so the contour lines stay on top of the coloured overlays. ----
+
+      // Ground firmness (firmness.py): thermal inertia, 3 km/px, coloured by surface class.
+      const firmnessLayer = serverTiles("firmness", 8, {
         title: "Ground Firmness (thermal inertia)",
         copyright: "Thermal inertia: NASA/MGS/TES, Putzig & Mellon 2007",
-        spatialReference: { wkid: MARS_WKID },
-        fullExtent: MARS_EXTENT,
-        tileInfo: marsTileInfo(8),
         opacity: 0.6,
-        visible: false,
       });
-      map.add(firmnessLayer);
 
-      // Water ice: depth to the shallowest ice (white = on the surface, darker blue =
-      // deeper), from SWIM and the USGS polar ice units, drawn by server.py.
-      const IceLayer = BaseTileLayer.createSubclass({
-        getTileUrl: (level, row, col) => `/ice/${level}/${row}/${col}.png`,
-      });
-      const iceLayer = new IceLayer({
+      // Water ice (ice.py): depth to the shallowest ice, white on the surface to dark blue deeper.
+      const iceLayer = serverTiles("ice", 8, {
         title: "Water Ice (depth to ice)",
         copyright: "Ice: SWIM (Morgan & Putzig et al. 2025), USGS SIM 3292",
-        spatialReference: { wkid: MARS_WKID },
-        fullExtent: MARS_EXTENT,
-        tileInfo: marsTileInfo(8),
         opacity: 0.7,
-        visible: false,
       });
-      map.add(iceLayer);
 
-      // Contour lines drawn by server.py from the local elevation file. The interval
-      // tightens with zoom (2000 m down to 50 m); bold lines carry their elevation.
-      const ContourLayer = BaseTileLayer.createSubclass({
-        getTileUrl: (level, row, col) => `/contours/${level}/${row}/${col}.png`,
-      });
-      map.add(new ContourLayer({
+      // Contour lines (contours.py): the interval tightens with zoom (2000 m down to 50 m);
+      // bold lines carry their elevation.
+      const contourLayer = serverTiles("contours", 13, {
         title: "Contour Lines (elevation in m)",
         copyright: "Contours: derived from HRSC+MOLA DEM",
-        spatialReference: { wkid: MARS_WKID },
-        fullExtent: MARS_EXTENT,
-        tileInfo: marsTileInfo(13),
-        visible: false,
-      }));
-
-      // ---- Team layers go here (see web/README.md) ----
-      // map.add(new TileLayer / ImageryTileLayer / GeoJSONLayer({...}));
-
-      // ---- Radiation (radiation.py): modelled dose rate and terrain shelter, Gale crater.
-      // PNG tiles from server.py, same tiling scheme as the CTX imagery (levels 0-9). ----
-      const RadiationTiles = BaseTileLayer.createSubclass({
-        properties: { kind: null },
-        getTileUrl(level, row, col) { return `/radiation/tiles/${this.kind}/${level}/${row}/${col}.png`; },
       });
-      const radiationLayer = (kind, title, visible, opacity) => new RadiationTiles({
-        kind, title, visible, opacity,
+
+      // Radiation (radiation.py): modelled dose rate and terrain shelter, Gale crater only.
+      const radiationTiles = (kind, properties) => serverTiles(`radiation/tiles/${kind}`, 10, {
         copyright: "Radiation: modelled, anchored to NASA/JPL/SwRI Curiosity RAD",
-        spatialReference: { wkid: MARS_WKID },
-        fullExtent: { xmin: -180, ymin: -90, xmax: 180, ymax: 90, spatialReference: { wkid: MARS_WKID } },
-        tileInfo: new TileInfo({
-          size: [512, 512],
-          origin: { x: -180, y: 90, spatialReference: { wkid: MARS_WKID } },
-          spatialReference: { wkid: MARS_WKID },
-          lods: Array.from({ length: 10 }, (_, level) => ({
-            level,
-            resolution: 0.3515625 / 2 ** level,
-            scale: 78760513.4003741 / 2 ** level,
-          })),
-        }),
+        ...properties,
       });
-      const radDose = radiationLayer("dose", "Dose rate (modelled)", true, 0.7);
-      const radShelter = radiationLayer("shelter", "Sky blocked by terrain (modelled)", false, 0.9);
+      const radDose = radiationTiles("dose", { title: "Dose rate (modelled)", opacity: 0.7, visible: true });
+      const radShelter = radiationTiles("shelter", { title: "Sky blocked by terrain (modelled)", opacity: 0.9 });
+      const blackOutline = { outline: { color: "black", width: 1 } };
       const radShelters = new GeoJSONLayer({
         url: "/radiation/shelters.geojson",
         title: "Best natural shelters (modelled)",
-        renderer: { type: "simple", symbol: { type: "simple-marker", style: "diamond", color: "#40e0d0", size: 11, outline: { color: "black", width: 1 } } },
+        renderer: marker(11, "#40e0d0", { style: "diamond", ...blackOutline }),
         labelingInfo: label3d("name", 30, 0.5),
         popupTemplate: fieldsPopup("{name}", [
           ["sky_blocked_pct", "Sky blocked by terrain (%)"], ["dose_eq_msv_per_day", "Dose rate (mSv/day)"],
@@ -300,7 +271,7 @@
       const radMeasured = new GeoJSONLayer({
         url: "data/rad-measurement.geojson",
         title: "Curiosity RAD measurement (measured)",
-        renderer: { type: "simple", symbol: { type: "simple-marker", color: "#fde725", size: 12, outline: { color: "black", width: 1 } } },
+        renderer: marker(12, "#fde725", blackOutline),
         labelingInfo: label3d("name", 30, 0.5),
         popupTemplate: fieldsPopup("{name}", [
           ["dose_eq_msv_per_day", "Dose equivalent (mSv/day)"], ["absorbed_mgy_per_day", "Absorbed dose (mGy/day)"],
@@ -312,16 +283,56 @@
         visible: false,
         layers: [radDose, radShelter, radShelters, radMeasured],
       });
-      map.add(radiationGroup);
 
-      // Legend follows layer visibility; a map click reads the dose at that spot.
-      const radPanel = document.getElementById("radiationPanel");
-      const syncRadiationPanel = () => {
-        radPanel.style.display = radiationGroup.visible ? "block" : "none";
-        document.getElementById("radDoseLegend").style.display = radDose.visible ? "block" : "none";
-        document.getElementById("radShelterLegend").style.display = radShelter.visible ? "block" : "none";
+      // ---- New layers go here: build with serverTiles() or GeoJSONLayer and add to this list.
+      // They appear in the layer list automatically. ----
+      map.addMany([firmnessLayer, iceLayer, contourLayer, radiationGroup]);
+
+      // ---- Widgets ----
+      view.ui.move(["navigation-toggle", "compass", "zoom"], "top-right");
+      view.ui.empty("top-left");
+
+      const ccWidget = new CoordinateConversion({ view });
+      ccWidget.formats.find((f) => f.name === "xy").currentPattern = "Lat: Y°N, Long: X°E";
+      view.ui.add(new Expand({ view, content: ccWidget, expanded: window.innerWidth > 544 }), "top-left", 0);
+
+      const expand = (content) => new Expand({ view, content, expanded: false, group: "top-left" });
+      view.ui.add(expand(new AreaMeasurement3D({ view })), "top-left", 1);
+      view.ui.add(expand(new ElevationProfile({ view })), "top-left", 2);
+      view.ui.add(expand(new LayerList({ view })), "top-left", 3);
+      view.ui.add(expand(new Bookmarks({ view, editingEnabled: true })), "top-left", 4);
+
+      // ---- Legends: stacked top-right, each shown only while its layer is on ----
+      const addLegend = (legend, layer) => {
+        legend.hidden = !layer.visible;
+        layer.watch("visible", (visible) => { legend.hidden = !visible; });
+        view.ui.add(legend, "top-right");
       };
-      [radiationGroup, radDose, radShelter].forEach((l) => l.watch("visible", syncRadiationPanel));
+
+      // Class legends: the classes and their colours come from the layer's Python module.
+      const classLegend = (layer, url, heading, footer = "") => {
+        const legend = document.createElement("div");
+        legend.className = "legend";
+        addLegend(legend, layer);
+        fetch(url).then((r) => r.json()).then((classes) => {
+          legend.innerHTML = heading +
+            classes.map((c) => `<br><i style="background:${c.color}"></i>${c.label}`).join("") + footer;
+        });
+      };
+      classLegend(firmnessLayer, "/firmness/legend", "<b>Ground firmness</b><br>Thermal inertia, 3 km resolution");
+      classLegend(iceLayer, "/ice/legend", "<b>Water ice</b><br>Depth to the shallowest ice, 3 km resolution",
+        "<br>No colour: no ice found, or not mapped (60° to the polar ice)");
+
+      // Radiation legend (in the page above): one colour ramp per visible tile layer,
+      // and a map click reads the dose at that spot.
+      addLegend(document.getElementById("radiationLegend"), radiationGroup);
+      const rampLegend = (id, layer) => {
+        const ramp = document.getElementById(id);
+        ramp.hidden = !layer.visible;
+        layer.watch("visible", (visible) => { ramp.hidden = !visible; });
+      };
+      rampLegend("radDoseLegend", radDose);
+      rampLegend("radShelterLegend", radShelter);
       view.on("click", (event) => {
         if (!radiationGroup.visible || !event.mapPoint) return;
         const { longitude: lon, latitude: lat } = event.mapPoint;
@@ -338,43 +349,6 @@
             </table>` : "No radiation estimate here: outside the Gale study area.";
           })
           .catch(() => { out.textContent = "Radiation service not reachable."; });
-      });
-
-      // ---- Widgets ----
-      view.ui.move(["navigation-toggle", "compass", "zoom"], "top-right");
-      view.ui.empty("top-left");
-
-      const ccWidget = new CoordinateConversion({ view });
-      ccWidget.formats.find((f) => f.name === "xy").currentPattern = "Lat: Y°N, Long: X°E";
-      view.ui.add(new Expand({ view, content: ccWidget, expanded: window.innerWidth > 544 }), "top-left", 0);
-
-      const expand = (content) => new Expand({ view, content, expanded: false, group: "top-left" });
-      view.ui.add(expand(new AreaMeasurement3D({ view })), "top-left", 1);
-      view.ui.add(expand(new ElevationProfile({ view })), "top-left", 2);
-      view.ui.add(expand(new LayerList({ view })), "top-left", 3);
-      view.ui.add(expand(new Bookmarks({ view, editingEnabled: true })), "top-left", 4);
-
-      // Firmness legend, shown only while the layer is on. Classes come from firmness.py.
-      const firmnessLegend = document.createElement("div");
-      firmnessLegend.className = "legend";
-      firmnessLegend.hidden = true;
-      firmnessLayer.watch("visible", (visible) => { firmnessLegend.hidden = !visible; });
-      view.ui.add(firmnessLegend, "top-right");
-      fetch("/firmness/legend").then((r) => r.json()).then((classes) => {
-        firmnessLegend.innerHTML = "<b>Ground firmness</b><br>Thermal inertia, 3 km resolution<br>" +
-          classes.map((c) => `<i style="background:${c.color}"></i>${c.label} (${c.range})`).join("<br>");
-      });
-
-      // Water-ice legend, shown only while the layer is on. Classes come from ice.py.
-      const iceLegend = document.createElement("div");
-      iceLegend.className = "legend";
-      iceLegend.hidden = true;
-      iceLayer.watch("visible", (visible) => { iceLegend.hidden = !visible; });
-      view.ui.add(iceLegend, "top-right");
-      fetch("/ice/legend").then((r) => r.json()).then((classes) => {
-        iceLegend.innerHTML = "<b>Water ice</b><br>Depth to the shallowest ice, 3 km resolution<br>" +
-          classes.map((c) => `<i style="background:${c.color}"></i>${c.label}`).join("<br>") +
-          "<br>No colour: no ice found, or not mapped (60° to the polar ice)";
       });
 
       // ---- Bookmark buttons: [label, lon, lat, altitude m, heading, tilt] ----

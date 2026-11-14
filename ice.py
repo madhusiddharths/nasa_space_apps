@@ -24,18 +24,18 @@ GIS facts about the grid (see DATA_SOURCES.md for the shared conventions):
   Values      per class, a weight 0..1 that ice is present (0.5 = SWIM score 0.3);
               read_ice_class() turns these into an int8 index into CLASSES, -1 for none
 """
-import io
 import json
 import threading
 from pathlib import Path
 
 import numpy as np
 import rasterio
-from PIL import Image
 from rasterio.features import rasterize
 from rasterio.transform import from_origin
 
 import elevation
+import tiles
+from tiles import TILE_PX
 
 DATA_DIR = Path(__file__).parent / "data/water_ice"
 ROWS, COLS = 3600, 7200
@@ -103,8 +103,7 @@ def _weights_grid():
 
 def _cell_centres(west, south, east, north, rows, cols):
     """Fractional grid row and column of each cell centre of a lon/lat box."""
-    lats = north - (np.arange(rows) + 0.5) * (north - south) / rows
-    lons = west + (np.arange(cols) + 0.5) * (east - west) / cols
+    lats, lons = tiles.cell_centres(west, south, east, north, rows, cols)
     return (90 - lats) / DEG_PER_PX - 0.5, (lons + 180) / DEG_PER_PX - 0.5
 
 
@@ -123,15 +122,14 @@ def read_ice_class(west, south, east, north, shape=None):
     return np.where(present.any(axis=0), present.argmax(axis=0), -1).astype(np.int8)
 
 
-# --- Map tiles for the 3D viewer (same tiling scheme as the CTX imagery) ---
-TILE_PX = 512
+# --- Map tiles for the 3D viewer (tiling scheme in tiles.py) ---
 RELIEF = 4  # slope exaggeration for the relief shading
 
 
 def _hillshade(west, south, east, north, rows, cols):
     """Relief shading factor around 1 (flat ground = 1), light from the north-west."""
     z = elevation.read_elevation(west, max(south, -90), east, min(north, 90), shape=(rows, cols))
-    lats = north - (np.arange(rows) + 0.5) * (north - south) / rows
+    lats, _ = tiles.cell_centres(west, south, east, north, rows, cols)
     dy = (north - south) / rows * elevation.M_PER_DEG
     # East-west spacing shrinks towards the poles; capped at 0.25 so the elevation data's
     # along-track noise is not amplified into stripes there.
@@ -147,13 +145,10 @@ def _hillshade(west, south, east, north, rows, cols):
 def tile_png(level, row, col):
     """One viewer tile: depth-class colours that fade into each other and into nothing,
     shaded with the terrain relief so the colour sits in the landscape."""
-    span = 180 / 2**level
-    west = -180 + col * span
-    north = 90 - row * span
-    south = north - span
+    west, south, east, north = tiles.bounds(level, row, col)
 
     # Bilinear sample of the weight grids at the tile's pixel centres.
-    r, c = _cell_centres(west, south, west + span, north, TILE_PX, TILE_PX)
+    r, c = _cell_centres(west, south, east, north, TILE_PX, TILE_PX)
     r = np.clip(r, 0, ROWS - 1)
     r0 = np.minimum(r.astype(int), ROWS - 2)
     c0 = np.floor(c).astype(int)
@@ -172,17 +167,13 @@ def tile_png(level, row, col):
         wi = w[index][..., None]
         rgb = _COLOURS[index] * wi + rgb * (1 - wi)
         alpha = w[index] + alpha * (1 - w[index])
-    out = io.BytesIO()
     if not alpha.any():
-        Image.new("RGBA", (TILE_PX, TILE_PX)).save(out, "PNG")
-        return out.getvalue()
+        return tiles.png(np.zeros((TILE_PX, TILE_PX, 4), np.uint8))
     rgb /= np.maximum(alpha, 1e-6)[..., None]
-    rgb *= _hillshade(west, south, west + span, north, TILE_PX, TILE_PX)[..., None]
-    rgba = np.dstack([np.clip(rgb, 0, 255), alpha * 255]).astype(np.uint8)
-    Image.fromarray(rgba).save(out, "PNG")
-    return out.getvalue()
+    rgb *= _hillshade(west, south, east, north, TILE_PX, TILE_PX)[..., None]
+    return tiles.png(np.dstack([np.clip(rgb, 0, 255), alpha * 255]).astype(np.uint8))
 
 
 def legend():
     """Class labels and colours for the viewer's legend."""
-    return [{"label": label, "color": "#%02x%02x%02x" % rgb} for label, rgb, _ in CLASSES]
+    return [{"label": label, "color": tiles.hex_color(rgb)} for label, rgb, _ in CLASSES]

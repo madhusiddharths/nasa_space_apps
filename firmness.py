@@ -13,16 +13,16 @@ GIS facts about the file (see DATA_SOURCES.md for the shared conventions):
   Size        7200 x 3600 px, 0.05 deg/px (3 km at the equator)
   Values      big-endian int16, J m^-2 K^-1 s^-1/2 ("tiu"), range 5..5000, 0 = nodata
 """
-import io
 import threading
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
 from rasterio.enums import Resampling
 from rasterio.io import MemoryFile
 from rasterio.transform import from_origin
 from rasterio.windows import from_bounds
+
+import tiles
 
 TI_PATH = Path(__file__).parent / "data/thermal_inertia/global_ti_night_2007.img"
 ROWS, COLS = 3600, 7200
@@ -82,29 +82,22 @@ def firmness_class(thermal_inertia):
     return classes
 
 
-# --- Map tiles for the 3D viewer (same tiling scheme as the CTX imagery) ---
-TILE_PX = 512
-
+# --- Map tiles for the 3D viewer (tiling scheme in tiles.py) ---
 
 def tile_png(level, row, col):
     """One viewer tile, coloured by firmness class; transparent where there is no data."""
-    span = 180 / 2**level
-    west = -180 + col * span
-    north = 90 - row * span
-    ti = read_thermal_inertia(west, north - span, west + span, north, shape=(TILE_PX, TILE_PX))
-    out = io.BytesIO()
-    Image.fromarray(_PALETTE[firmness_class(ti)]).save(out, "PNG")
-    return out.getvalue()
+    shape = (tiles.TILE_PX, tiles.TILE_PX)
+    ti = read_thermal_inertia(*tiles.bounds(level, row, col), shape=shape)
+    return tiles.png(_PALETTE[firmness_class(ti)])
 
 
 def legend():
-    """Class ranges, descriptions and colours for the viewer's legend."""
+    """Class labels (with their thermal inertia range) and colours for the viewer's legend."""
     lower = [0] + _BOUNDS
     return [
         {
-            "range": f"{lo}–{upper}" if upper != np.inf else f"over {lo}",
-            "label": label,
-            "color": "#%02x%02x%02x" % rgb,
+            "label": f"{label} ({lo}–{upper})" if upper != np.inf else f"{label} (over {lo})",
+            "color": tiles.hex_color(rgb),
         }
         for lo, (upper, label, rgb) in zip(lower, CLASSES)
     ]

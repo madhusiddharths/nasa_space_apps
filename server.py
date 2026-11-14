@@ -1,6 +1,6 @@
-"""Serves the viewer (web/) plus terrain, contour-line, ground-firmness and water-ice tiles from local data.
+"""Serves the viewer (web/) and, from local data, each layer's map tiles, legend and values.
 
-Run:  .venv/bin/uvicorn server:app --port 8000
+Run:  .venv/bin/uvicorn server:app --port 8000 --reload
 """
 from typing import List, Optional
 
@@ -17,6 +17,12 @@ import radiation
 app = FastAPI()
 
 
+def _png(data):
+    return Response(data, media_type="image/png")
+
+
+# ---- Terrain (elevation.py) and contour lines (contours.py) ----
+
 @app.get("/elevation/{level}/{row}/{col}")
 def elevation_tile(level: int, row: int, col: int):
     return Response(elevation.tile(level, row, col).tobytes(), media_type="application/octet-stream")
@@ -24,12 +30,14 @@ def elevation_tile(level: int, row: int, col: int):
 
 @app.get("/contours/{level}/{row}/{col}.png")
 def contour_tile(level: int, row: int, col: int):
-    return Response(contours.tile_png(level, row, col), media_type="image/png")
+    return _png(contours.tile_png(level, row, col))
 
+
+# ---- Ground firmness (firmness.py) ----
 
 @app.get("/firmness/{level}/{row}/{col}.png")
 def firmness_tile(level: int, row: int, col: int):
-    return Response(firmness.tile_png(level, row, col), media_type="image/png")
+    return _png(firmness.tile_png(level, row, col))
 
 
 @app.get("/firmness/legend")
@@ -37,9 +45,11 @@ def firmness_legend():
     return firmness.legend()
 
 
+# ---- Water ice (ice.py) ----
+
 @app.get("/ice/{level}/{row}/{col}.png")
 def ice_tile(level: int, row: int, col: int):
-    return Response(ice.tile_png(level, row, col), media_type="image/png")
+    return _png(ice.tile_png(level, row, col))
 
 
 @app.get("/ice/legend")
@@ -47,14 +57,13 @@ def ice_legend():
     return ice.legend()
 
 
-# ---- Radiation layer (radiation.py). Values are modelled estimates anchored to Curiosity RAD. ----
+# ---- Radiation (radiation.py): modelled estimates anchored to Curiosity RAD ----
 
 @app.get("/radiation/tiles/{kind}/{level}/{row}/{col}.png")
 def radiation_tile(kind: str, level: int, row: int, col: int):
     if kind not in ("dose", "shelter"):
         raise HTTPException(404, "kind must be 'dose' or 'shelter'")
-    return Response(radiation.tile_png(kind, level, row, col), media_type="image/png",
-                    headers={"Cache-Control": "max-age=3600"})
+    return _png(radiation.tile_png(kind, level, row, col))
 
 
 @app.get("/radiation/point")

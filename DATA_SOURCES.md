@@ -18,13 +18,17 @@ The `data/` folder is not in git. Create it inside the cloned repo and download:
 Both elevation files are required and must keep these names. Without the `.ovr` file, zoomed-out
 reads take seconds instead of milliseconds.
 
-One command from the repo root (resumes if interrupted):
+Each command below runs from the repo root and resumes if interrupted.
+
+Elevation:
 
 ```bash
 mkdir -p data/elevation && cd data/elevation && curl -L -C - -O https://planetarymaps.usgs.gov/mosaic/Mars/HRSC_MOLA_Blend/Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif -O https://planetarymaps.usgs.gov/mosaic/Mars/HRSC_MOLA_Blend/Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif.ovr
 ```
 
-Thermal inertia, also from the repo root:
+Dataset page: https://astrogeology.usgs.gov/search/map/mars_mgs_mola_mex_hrsc_blended_dem_global_200m
+
+Thermal inertia:
 
 ```bash
 mkdir -p data/thermal_inertia && cd data/thermal_inertia && curl -L -C - -O https://pds-geosciences.wustl.edu/mgs/mgs-m-tes-5-timap-v1/mgst_9001/data/global_ti_night_2007.img -O https://pds-geosciences.wustl.edu/mgs/mgs-m-tes-5-timap-v1/mgst_9001/data/global_ti_night_2007.lbl
@@ -32,7 +36,7 @@ mkdir -p data/thermal_inertia && cd data/thermal_inertia && curl -L -C - -O http
 
 Dataset page: https://pds-geosciences.wustl.edu/missions/mgs/tes-timap.html
 
-Water ice, also from the repo root (three SWIM maps, then the polar ice outlines):
+Water ice (three SWIM maps, then the polar ice outlines):
 
 ```bash
 mkdir -p data/water_ice && cd data/water_ice && curl -L -C - -O https://swim.psi.edu/output/SWIM4MIM/Global/Composite/SWIM4MIM_Ci_0_1.tif -O https://swim.psi.edu/output/SWIM4MIM/Global/Composite/SWIM4MIM_Ci_1_5.tif -O https://swim.psi.edu/output/SWIM4MIM/Global/Composite/SWIM4MIM_Ci_5.tif
@@ -43,8 +47,6 @@ curl -G "https://services.arcgis.com/v01gqwM5QqNysAAi/arcgis/rest/services/Tanak
 ```
 
 Dataset pages: https://swim.psi.edu/SWIM4MIMProducts.php and https://pubs.usgs.gov/publication/sim3292
-
-Elevation dataset page: https://astrogeology.usgs.gov/search/map/mars_mgs_mola_mex_hrsc_blended_dem_global_200m
 
 Expected layout:
 
@@ -61,9 +63,10 @@ data/
     SWIM4MIM_Ci_1_5.tif
     SWIM4MIM_Ci_5.tif
     polar_surface_ice.geojson
+  radiation/            created by radiation.py on first use (cached grids)
 ```
 
-## Radiation layer
+## Radiation layer: sources and model
 
 No download needed for Gale crater. If the 15 GB elevation file above is missing,
 `radiation.py` fetches only the Gale window (136.5 to 139.0°E, 6.0 to 4.0°S) from the same
