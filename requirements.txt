@@ -3,3 +3,4 @@ uvicorn
 rasterio
 numpy
 pillow
+scipy

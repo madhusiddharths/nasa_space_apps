@@ -14,6 +14,7 @@ import firmness
 import temperature
 import ice
 import radiation
+import routing
 
 app = FastAPI()
 
@@ -129,6 +130,17 @@ def radiation_shelters(count: int = 12):
 @app.get("/radiation/info")
 def radiation_info():
     return radiation.info()
+
+
+# ---- Routing (routing.py): the safest and the quickest walk between two points ----
+
+@app.get("/routing/astronaut")
+def routing_astronaut(from_lon: float, from_lat: float, to_lon: float, to_lat: float,
+                      ls: float = 90, local_time: float = 12):
+    try:
+        return routing.plan((from_lon, from_lat), (to_lon, to_lat), ls=ls, local_time=local_time)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
 
 
 app.mount("/", StaticFiles(directory="web", html=True))
