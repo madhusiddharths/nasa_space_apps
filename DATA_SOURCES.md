@@ -12,17 +12,23 @@ The `data/` folder is not in git. Create it inside the cloned repo and download:
 | Mars HRSC + MOLA blended elevation, 200 m, v2 (USGS) | 11.4 GB | `data/elevation/` | [Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif](https://planetarymaps.usgs.gov/mosaic/Mars/HRSC_MOLA_Blend/Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif) |
 | Its overview sidecar (low-resolution copies) | 3.8 GB | `data/elevation/` | [Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif.ovr](https://planetarymaps.usgs.gov/mosaic/Mars/HRSC_MOLA_Blend/Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif.ovr) |
 | MGS TES nightside thermal inertia, 3 km (Putzig & Mellon 2007, NASA PDS) | 52 MB | `data/thermal_inertia/` | [global_ti_night_2007.img](https://pds-geosciences.wustl.edu/mgs/mgs-m-tes-5-timap-v1/mgst_9001/data/global_ti_night_2007.img) |
+| SWIM ice consistency, 0–1 m, 1–5 m and >5 m depth, 3 km (PSI/NASA) | 3 × 71 MB | `data/water_ice/` | [SWIM4MIM_Ci_0_1.tif](https://swim.psi.edu/output/SWIM4MIM/Global/Composite/SWIM4MIM_Ci_0_1.tif), [SWIM4MIM_Ci_1_5.tif](https://swim.psi.edu/output/SWIM4MIM/Global/Composite/SWIM4MIM_Ci_1_5.tif), [SWIM4MIM_Ci_5.tif](https://swim.psi.edu/output/SWIM4MIM/Global/Composite/SWIM4MIM_Ci_5.tif) |
+| Polar ice units `lApc` and `Apu` from the USGS geologic map of Mars (SIM 3292) | 1 MB | `data/water_ice/` | query of the [USGS feature service](https://services.arcgis.com/v01gqwM5QqNysAAi/arcgis/rest/services/Tanaka_et_al_2014_Mars_Global_Map_Features/FeatureServer/3), command below |
 
 Both elevation files are required and must keep these names. Without the `.ovr` file, zoomed-out
 reads take seconds instead of milliseconds.
 
-One command from the repo root (resumes if interrupted):
+Each command below runs from the repo root and resumes if interrupted.
+
+Elevation:
 
 ```bash
 mkdir -p data/elevation && cd data/elevation && curl -L -C - -O https://planetarymaps.usgs.gov/mosaic/Mars/HRSC_MOLA_Blend/Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif -O https://planetarymaps.usgs.gov/mosaic/Mars/HRSC_MOLA_Blend/Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif.ovr
 ```
 
-Thermal inertia, also from the repo root:
+Dataset page: https://astrogeology.usgs.gov/search/map/mars_mgs_mola_mex_hrsc_blended_dem_global_200m
+
+Thermal inertia:
 
 ```bash
 mkdir -p data/thermal_inertia && cd data/thermal_inertia && curl -L -C - -O https://pds-geosciences.wustl.edu/mgs/mgs-m-tes-5-timap-v1/mgst_9001/data/global_ti_night_2007.img -O https://pds-geosciences.wustl.edu/mgs/mgs-m-tes-5-timap-v1/mgst_9001/data/global_ti_night_2007.lbl
@@ -30,7 +36,17 @@ mkdir -p data/thermal_inertia && cd data/thermal_inertia && curl -L -C - -O http
 
 Dataset page: https://pds-geosciences.wustl.edu/missions/mgs/tes-timap.html
 
-Elevation dataset page: https://astrogeology.usgs.gov/search/map/mars_mgs_mola_mex_hrsc_blended_dem_global_200m
+Water ice (three SWIM maps, then the polar ice outlines):
+
+```bash
+mkdir -p data/water_ice && cd data/water_ice && curl -L -C - -O https://swim.psi.edu/output/SWIM4MIM/Global/Composite/SWIM4MIM_Ci_0_1.tif -O https://swim.psi.edu/output/SWIM4MIM/Global/Composite/SWIM4MIM_Ci_1_5.tif -O https://swim.psi.edu/output/SWIM4MIM/Global/Composite/SWIM4MIM_Ci_5.tif
+```
+
+```bash
+curl -G "https://services.arcgis.com/v01gqwM5QqNysAAi/arcgis/rest/services/Tanaka_et_al_2014_Mars_Global_Map_Features/FeatureServer/3/query" --data-urlencode "where=Unit IN ('lApc','Apu')" --data-urlencode "outFields=Unit,UnitDesc" --data-urlencode "f=geojson" -o data/water_ice/polar_surface_ice.geojson
+```
+
+Dataset pages: https://swim.psi.edu/SWIM4MIMProducts.php and https://pubs.usgs.gov/publication/sim3292
 
 Expected layout:
 
@@ -42,6 +58,12 @@ data/
   thermal_inertia/
     global_ti_night_2007.img
     global_ti_night_2007.lbl
+  water_ice/
+    SWIM4MIM_Ci_0_1.tif
+    SWIM4MIM_Ci_1_5.tif
+    SWIM4MIM_Ci_5.tif
+    polar_surface_ice.geojson
+  radiation/            created by radiation.py on first use (cached grids)
 ```
 
 ## Optional: 100 m temperature detail
@@ -71,6 +93,32 @@ Read by `temperature.py`. Rebuild with the scripts in `scripts/` (not needed to 
 | `surface_temperature_lut.npz` | Model surface temperature (K × 10) for 24 seasons × 24 hours × 37 latitudes × 12 thermal inertias × 5 albedos | Our thermal model, `scripts/build_temperature_lut.py` |
 
 Both maps are GeoTIFFs on the shared grid below (lon -180..180, row 0 north).
+## Radiation layer: sources and model
+
+No download needed for Gale crater. If the 15 GB elevation file above is missing,
+`radiation.py` fetches only the Gale window (136.5 to 139.0°E, 6.0 to 4.0°S) from the same
+USGS file on first use (about 30 s) and caches it in `data/radiation/`.
+
+Every radiation value shown is a **modelled estimate** except the RAD marker, which is a
+**measurement**.
+
+| Source | Kind | What we take from it | Link |
+|---|---|---|---|
+| Curiosity RAD, surface dose at Gale (Hassler et al. 2014, *Science* 343, 1244797) | Measured | The anchor: 0.210 ± 0.040 mGy/day absorbed dose, 0.64 ± 0.12 mSv/day dose equivalent, Aug 2012 to Jun 2013 | [doi:10.1126/science.1244797](https://doi.org/10.1126/science.1244797) |
+| Curiosity RAD beside butte M12, sols 1456 to 1467 (Ehresmann et al. 2021, *JGR Planets* 126, e2021JE006851) | Measured | Shelter strength: 19% of the sky blocked lowered the dose rate by 4% | [doi:10.1029/2021JE006851](https://doi.org/10.1029/2021JE006851) |
+| Odyssey MARIE + MOLA estimated dose map (NASA/JPL PIA03480) | Modelled by NASA | How much dose changes with elevation: 10 rem/yr on the lowest ground to 20 rem/yr on the highest | [PIA03480](https://www.jpl.nasa.gov/images/pia03480-estimated-radiation-dosage-on-mars/) |
+| HRSC + MOLA elevation (above) | Measured | Elevation, and the horizon scan for terrain shelter | see "Download after cloning" |
+
+Model assumptions (all in `radiation.py`, also served at `/radiation/info`): 610 Pa mean
+pressure at 0 m, 11.1 km atmospheric scale height, 3.71 m/s² gravity, exponential
+attenuation of dose with atmospheric column (47.6 g/cm², fitted to the PIA03480 range),
+horizon scanned in 16 directions out to 20 km on 200 m terrain. The 0.3 mSv excursion
+budget is a team planning number, not a NASA limit; the 600 mSv career limit is from
+NASA-STD-3001.
+
+Limits: no solar particle events or solar-cycle changes, no dust or seasonal pressure
+changes, and cliffs or buttes smaller than 200 m are not seen, so real shelter can be
+better than shown.
 
 ## Already in the repo (`web/data/`)
 
@@ -80,6 +128,7 @@ Copied from the Murray Lab CTX viewer. No download needed.
 |---|---|---|
 | `MSL_3420.geojson` | Curiosity traverse, to sol 3420 | [Murray Lab](https://murray-lab.caltech.edu/CTX/V01/SceneView/Features/MSL_3420.geojson), NASA/JPL/MSL |
 | `Mars2020_0678.geojson` | Perseverance traverse, to sol 678 | [Murray Lab](https://murray-lab.caltech.edu/CTX/V01/SceneView/Features/Mars2020_0678.geojson), NASA/JPL/M2020 |
+| `rad-measurement.geojson` | The Curiosity RAD surface dose measurement, as a map point | Hassler et al. 2014, NASA/JPL-Caltech/SwRI |
 | `mars-nomenclature.geojson` | IAU feature names | [Murray Lab](https://murray-lab.caltech.edu/CTX/V01/SceneView/Features/mars-nomenclature.geojson), IAU WGPSN |
 | `rems_ground_temperature.json` | Curiosity REMS daily low and high ground and air temperature, median per 15° of Ls, sols 1-4995 | [NASA Mars weather feed](https://mars.nasa.gov/rss/api/?feed=weather&category=msl&feedtype=json), NASA/JPL-Caltech/CAB (CSIC-INTA) |
 | `MurrayLab_CTX_V01_Quad-Map.geojson` | The 3,960 CTX mosaic tiles (4°×4°), each with a link to its download page | [Murray Lab](https://murray-lab.caltech.edu/CTX/V01/SceneView/Features/MurrayLab_CTX_V01_Quad-Map.geojson) |
@@ -106,6 +155,9 @@ tiles can be downloaded one at a time from https://murray-lab.caltech.edu/CTX/ (
 - Albedo: NASA/MGS/TES; Christensen et al. (2001), JGR 106, 23823–23871
 - Curiosity ground temperature: NASA/JPL-Caltech/CAB (CSIC-INTA), REMS
 - Atmosphere scheme of the thermal model: after N. Schorghofer's Planetary-Code-Collection
+- Buried ice: Subsurface Water Ice Mapping (SWIM) project, PSI/NASA/JPL; Morgan & Putzig et al. (2025)
+- Polar surface ice: Tanaka et al. (2014), Geologic Map of Mars, USGS SIM 3292
+- Radiation: NASA/JPL-Caltech/SwRI (MSL RAD), NASA/JPL/JSC (Odyssey MARIE)
 
 ## GIS reference (every layer must match this)
 
@@ -118,3 +170,6 @@ tiles can be downloaded one at a time from https://murray-lab.caltech.edu/CTX/ (
 - **Thermal inertia file:** raw image, no header: 7,200 × 3,600 px, 0.05°/px (3 km at the equator),
   big-endian int16 in J m⁻² K⁻¹ s⁻¹ᐟ² ("tiu"), range 5 to 5,000, nodata 0, no data beyond ±87°.
   Row 0 is north. `firmness.py` reads it; the `.lbl` file is its description.
+- **SWIM ice files:** 7,200 × 2,400 px, 0.05°/px, lon -180 to 180, lat 60 to -60 only, float32
+  consistency score from -1 (no ice) to +1 (ice); exactly 0 means no information. `ice.py` merges
+  the three depths with the polar ice outlines (lon/lat GeoJSON) into one 7,200 × 3,600 class grid.

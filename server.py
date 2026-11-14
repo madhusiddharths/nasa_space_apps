@@ -1,17 +1,29 @@
 """Serves the viewer (web/) plus terrain, contour-line, ground-firmness and surface-temperature tiles from local data.
+"""Serves the viewer (web/) and, from local data, each layer's map tiles, legend and values.
 
-Run:  .venv/bin/uvicorn server:app --port 8000
+Run:  .venv/bin/uvicorn server:app --port 8000 --reload
 """
-from fastapi import FastAPI, Response
+from typing import List, Optional
+
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 import contours
 import elevation
 import firmness
 import temperature
+import ice
+import radiation
 
 app = FastAPI()
 
+
+def _png(data):
+    return Response(data, media_type="image/png")
+
+
+# ---- Terrain (elevation.py) and contour lines (contours.py) ----
 
 @app.get("/elevation/{level}/{row}/{col}")
 def elevation_tile(level: int, row: int, col: int):
@@ -20,12 +32,14 @@ def elevation_tile(level: int, row: int, col: int):
 
 @app.get("/contours/{level}/{row}/{col}.png")
 def contour_tile(level: int, row: int, col: int):
-    return Response(contours.tile_png(level, row, col), media_type="image/png")
+    return _png(contours.tile_png(level, row, col))
 
+
+# ---- Ground firmness (firmness.py) ----
 
 @app.get("/firmness/{level}/{row}/{col}.png")
 def firmness_tile(level: int, row: int, col: int):
-    return Response(firmness.tile_png(level, row, col), media_type="image/png")
+    return _png(firmness.tile_png(level, row, col))
 
 
 @app.get("/firmness/legend")
@@ -56,6 +70,62 @@ def temperature_range(west: float, south: float, east: float, north: float,
 def temperature_point(lon: float, lat: float, ls: float = 0):
     """Ground properties and the 24-hour temperature cycle (kelvin) at one spot."""
     return temperature.diurnal_cycle(lon, lat, ls)
+# ---- Water ice (ice.py) ----
+
+@app.get("/ice/{level}/{row}/{col}.png")
+def ice_tile(level: int, row: int, col: int):
+    return _png(ice.tile_png(level, row, col))
+
+
+@app.get("/ice/legend")
+def ice_legend():
+    return ice.legend()
+
+
+# ---- Radiation (radiation.py): modelled estimates anchored to Curiosity RAD ----
+
+@app.get("/radiation/tiles/{kind}/{level}/{row}/{col}.png")
+def radiation_tile(kind: str, level: int, row: int, col: int):
+    if kind not in ("dose", "shelter"):
+        raise HTTPException(404, "kind must be 'dose' or 'shelter'")
+    return _png(radiation.tile_png(kind, level, row, col))
+
+
+@app.get("/radiation/point")
+def radiation_point(lon: float, lat: float, multiplier: float = 1.0):
+    """Safety-card radiation values for one place."""
+    card = radiation.at_point(lon, lat, multiplier)
+    if card is None:
+        raise HTTPException(404, f"outside the Gale study area {radiation.GALE_BOX}")
+    return card
+
+
+class Route(BaseModel):
+    points: List[List[float]]                  # [[lon, lat], ...]
+    speed_kmh: float = 3.0
+    stop_minutes: Optional[List[float]] = None  # minutes at each point
+    multiplier: float = 1.0                    # "solar event" what-if scaling
+    budget_msv: float = radiation.DEFAULT_EVA_BUDGET_MSV
+
+
+@app.post("/radiation/route")
+def radiation_route(route: Route):
+    """Dose per leg and per stop along a walk, with a warning where the budget is crossed."""
+    try:
+        return radiation.route_dose(route.points, route.speed_kmh, route.stop_minutes,
+                                    route.multiplier, route.budget_msv)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+
+
+@app.get("/radiation/shelters.geojson")
+def radiation_shelters(count: int = 12):
+    return radiation.shelters(count)
+
+
+@app.get("/radiation/info")
+def radiation_info():
+    return radiation.info()
 
 
 app.mount("/", StaticFiles(directory="web", html=True))
