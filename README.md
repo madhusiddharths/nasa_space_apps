@@ -34,19 +34,26 @@ question: what is the safest route across the surface for astronauts and rovers?
 
 Every layer can also be read in Python on a shared grid; see "Using the layers in Python".
 
-**Astronaut route planner.** Open "Astronaut route" (the directions button, top left), set a
-start A and a destination B up to 100 km apart, and the map draws two walks:
+**Astronaut route planner.** Open "Astronaut route" (the directions button, top left) and set a
+start A and a destination B up to 500 km apart. Each can be typed into its search box (a crater
+or other IAU feature name, a CTX grid tile such as `E136_N-08`, or coordinates in any format of
+the coordinate widget: XY, basemap, DD, DDM, DMS, MGRS, USNG, UTM) or picked on the map. The trip
+is hybrid: driven as far as the rover can go, walked the rest. The map draws two trips:
 
 - **Safest:** crosses as little hazardous ground as it can. If every possible route has to
   cross some hazard, that stretch is tagged *unavoidable* and drawn thick with a white edge.
-- **Quickest:** the least walking time. It may cross Caution ground, but never Danger or
+- **Quickest:** the least time. It may cross Caution ground, but never Danger or
   Extreme ground unless that is unavoidable.
 
-Each route lists distance, walking time, climb, steepest and coldest ground, radiation dose and
-its hazards. Hazards come from slope (Caution from 10°, Danger from 20°, Extreme from 30°),
-loose dust, and ground colder than −80 °C at the departure hour you choose.
+The rover follows drivable ground (no slopes over 25°), uses more of its range and slows down
+on climbs and soft ground, and is boarded and parked only on level, firm ground that is easy to
+reach (marked P). Its range on flat ground and the most walking allowed are fields in the panel
+(defaults 125 km and 10 km). If no trip fits those limits, the closest one is shown, marked
+*not viable*, with the reasons. Each route lists time, distance by rover and on foot, range
+used, climb, steepest and coldest ground, radiation dose and its hazards. The numbers and where
+they come from are at the top of `routing.py`; they are planning numbers, not NASA limits.
 
-Planned: rover routing, and round trips.
+Planned: round trips.
 
 ## Setup
 

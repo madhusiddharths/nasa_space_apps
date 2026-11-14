@@ -132,15 +132,22 @@ def radiation_info():
     return radiation.info()
 
 
-# ---- Routing (routing.py): the safest and the quickest walk between two points ----
+# ---- Routing (routing.py): the safest and the quickest trip between two points, by rover and on foot ----
 
 @app.get("/routing/astronaut")
 def routing_astronaut(from_lon: float, from_lat: float, to_lon: float, to_lat: float,
-                      ls: float = 90, local_time: float = 12):
+                      ls: float = 90, local_time: float = 12,
+                      range_km: float = routing.ROVER_RANGE_KM, max_walk_km: float = routing.MAX_WALK_KM):
     try:
-        return routing.plan((from_lon, from_lat), (to_lon, to_lat), ls=ls, local_time=local_time)
+        return routing.plan((from_lon, from_lat), (to_lon, to_lat), ls=ls, local_time=local_time,
+                            range_km=range_km, max_walk_km=max_walk_km)
     except ValueError as e:
         raise HTTPException(422, str(e))
+
+
+@app.get("/routing/legend")
+def routing_legend():
+    return routing.legend()
 
 
 app.mount("/", StaticFiles(directory="web", html=True))
