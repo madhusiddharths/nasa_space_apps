@@ -11,8 +11,9 @@ The `data/` folder is not in git. Create it inside the cloned repo and download:
 |---|---|---|---|
 | Mars HRSC + MOLA blended elevation, 200 m, v2 (USGS) | 11.4 GB | `data/elevation/` | [Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif](https://planetarymaps.usgs.gov/mosaic/Mars/HRSC_MOLA_Blend/Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif) |
 | Its overview sidecar (low-resolution copies) | 3.8 GB | `data/elevation/` | [Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif.ovr](https://planetarymaps.usgs.gov/mosaic/Mars/HRSC_MOLA_Blend/Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif.ovr) |
+| MGS TES nightside thermal inertia, 3 km (Putzig & Mellon 2007, NASA PDS) | 52 MB | `data/thermal_inertia/` | [global_ti_night_2007.img](https://pds-geosciences.wustl.edu/mgs/mgs-m-tes-5-timap-v1/mgst_9001/data/global_ti_night_2007.img) |
 
-Both files are required and must keep these names. Without the `.ovr` file, zoomed-out
+Both elevation files are required and must keep these names. Without the `.ovr` file, zoomed-out
 reads take seconds instead of milliseconds.
 
 One command from the repo root (resumes if interrupted):
@@ -21,7 +22,15 @@ One command from the repo root (resumes if interrupted):
 mkdir -p data/elevation && cd data/elevation && curl -L -C - -O https://planetarymaps.usgs.gov/mosaic/Mars/HRSC_MOLA_Blend/Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif -O https://planetarymaps.usgs.gov/mosaic/Mars/HRSC_MOLA_Blend/Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif.ovr
 ```
 
-Dataset page: https://astrogeology.usgs.gov/search/map/mars_mgs_mola_mex_hrsc_blended_dem_global_200m
+Thermal inertia, also from the repo root:
+
+```bash
+mkdir -p data/thermal_inertia && cd data/thermal_inertia && curl -L -C - -O https://pds-geosciences.wustl.edu/mgs/mgs-m-tes-5-timap-v1/mgst_9001/data/global_ti_night_2007.img -O https://pds-geosciences.wustl.edu/mgs/mgs-m-tes-5-timap-v1/mgst_9001/data/global_ti_night_2007.lbl
+```
+
+Dataset page: https://pds-geosciences.wustl.edu/missions/mgs/tes-timap.html
+
+Elevation dataset page: https://astrogeology.usgs.gov/search/map/mars_mgs_mola_mex_hrsc_blended_dem_global_200m
 
 Expected layout:
 
@@ -30,6 +39,9 @@ data/
   elevation/
     Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif
     Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif.ovr
+  thermal_inertia/
+    global_ti_night_2007.img
+    global_ti_night_2007.lbl
 ```
 
 ## Already in the repo (`web/data/`)
@@ -60,6 +72,7 @@ tiles can be downloaded one at a time from https://murray-lab.caltech.edu/CTX/ (
 - CTX mosaic: NASA/JPL/MSSS/The Murray Lab
 - Elevation: NASA GSFC, DLR, USGS Astrogeology, JPL, ESA (HRSC + MOLA blend)
 - Feature names: IAU Working Group for Planetary System Nomenclature
+- Thermal inertia: NASA/MGS/TES; Putzig & Mellon (2007), Icarus 191, 68–94
 
 ## GIS reference (every layer must match this)
 
@@ -69,3 +82,6 @@ tiles can be downloaded one at a time from https://murray-lab.caltech.edu/CTX/ (
 - **Sphere radius:** 3,396,190 m. 1° of latitude = 59,274.7 m. 1° of longitude = 59,274.7 × cos(lat) m.
 - **Elevation file:** 106,694 × 53,347 px, 0.003374120830641°/px (200 m at the equator),
   int16 metres above the MOLA areoid, range -8,528 to 21,226, nodata -32768. Row 0 is north.
+- **Thermal inertia file:** raw image, no header: 7,200 × 3,600 px, 0.05°/px (3 km at the equator),
+  big-endian int16 in J m⁻² K⁻¹ s⁻¹ᐟ² ("tiu"), range 5 to 5,000, nodata 0, no data beyond ±87°.
+  Row 0 is north. `firmness.py` reads it; the `.lbl` file is its description.
