@@ -280,7 +280,8 @@
       });
 
       // ---- New layers go here: build with serverTiles() or GeoJSONLayer and add to this list.
-      // They appear in the layer list automatically. ----
+      // They appear in the layer list automatically. Contour lines and the route are moved
+      // above everything else further down, so a new layer never covers them. ----
       map.addMany([firmnessLayer, iceLayer, contourLayer, radiationGroup]);
 
       // Surface temperature for any season and time of day, with its own panel (web/temperature.js).
@@ -306,6 +307,11 @@
         GraphicsLayer, GroupLayer, Graphic, Expand, coordinateFormatter,
         selectedFormat: () => { const c = ccWidget.conversions.getItemAt(0); return c && c.format && c.format.name; },
       });
+
+      // Drawing order, top down: the route, then the contour lines, then every other layer.
+      // Layers later in map.layers draw on top, so these two go last, whatever was added before.
+      map.reorder(contourLayer, map.layers.length - 1);
+      map.reorder(window.marsRouting.group, map.layers.length - 1);
 
       // ---- Legends: stacked top-right, each shown only while its layer is on ----
       const addLegend = (legend, layer) => {
