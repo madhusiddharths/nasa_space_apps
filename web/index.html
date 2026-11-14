@@ -11,6 +11,7 @@
   <!-- The look of the viewer: tokens, Esri widget restyling and our panels. Loaded after Esri's theme. -->
   <link rel="stylesheet" href="theme.css" />
   <script src="https://js.arcgis.com/4.26/"></script>
+  <script src="/tiles-version.js"></script>   <!-- window.TILES_VERSION, from tiles.py -->
   <script src="layout.js"></script>
   <script src="picking.js"></script>
   <script src="temperature.js"></script>
@@ -76,9 +77,10 @@
 
       // A layer whose PNG tiles server.py draws at /<path>/<level>/<row>/<col>.png.
       // Off by default; `levels` is how many zoom levels the server can draw.
+      // Browsers keep tiles for a day; ?v= (TILES_VERSION in tiles.py) changes when the tiles do.
       const ServerTiles = BaseTileLayer.createSubclass({
         properties: { path: null },
-        getTileUrl(level, row, col) { return `/${this.path}/${level}/${row}/${col}.png`; },
+        getTileUrl(level, row, col) { return `/${this.path}/${level}/${row}/${col}.png?v=${TILES_VERSION}`; },
       });
       const serverTiles = (path, levels, properties) => new ServerTiles({
         path,
@@ -93,7 +95,7 @@
       // by server.py (levels 0-7). ----
       const LocalElevationLayer = BaseElevationLayer.createSubclass({
         fetchTile(level, row, col, options) {
-          return fetch(`/elevation/${level}/${row}/${col}`, { signal: options && options.signal })
+          return fetch(`/elevation/${level}/${row}/${col}?v=${TILES_VERSION}`, { signal: options && options.signal })
             .then((r) => r.arrayBuffer())
             .then((buf) => ({ values: new Float32Array(buf), width: 257, height: 257, noDataValue: -32768 }));
         },
@@ -247,7 +249,7 @@
       // it is set from what is showing underneath (contourStyle, below).
       const ContourTiles = ServerTiles.createSubclass({
         properties: { style: "blue" },
-        getTileUrl(level, row, col) { return `/contours/${level}/${row}/${col}.png?style=${this.style}`; },
+        getTileUrl(level, row, col) { return `/contours/${level}/${row}/${col}.png?style=${this.style}&v=${TILES_VERSION}`; },
       });
       const contourLayer = new ContourTiles({
         title: "Contour Lines (elevation in m)",

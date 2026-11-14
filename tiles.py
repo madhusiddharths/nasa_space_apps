@@ -10,6 +10,11 @@ import numpy as np
 from PIL import Image
 
 TILE_PX = 512
+# Browsers keep tiles for a day (CACHE_HEADERS) under an address that ends in ?v=TILES_VERSION.
+# Raise the version whenever a change makes any tile look different, or browsers will go on
+# showing the tiles they saved.
+TILES_VERSION = "1"
+CACHE_HEADERS = {"Cache-Control": "public, max-age=86400"}
 
 
 def bounds(level, row, col):

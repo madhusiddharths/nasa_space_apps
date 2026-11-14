@@ -15,19 +15,28 @@ import temperature
 import ice
 import radiation
 import routing
+import tiles
 
 app = FastAPI()
 
 
 def _png(data):
-    return Response(data, media_type="image/png")
+    return Response(data, media_type="image/png", headers=tiles.CACHE_HEADERS)
+
+
+@app.get("/tiles-version.js")
+def tiles_version():
+    """Tells the page which version to put on tile addresses (see TILES_VERSION in tiles.py)."""
+    return Response(f'window.TILES_VERSION = "{tiles.TILES_VERSION}";\n', media_type="text/javascript",
+                    headers={"Cache-Control": "no-cache"})
 
 
 # ---- Terrain (elevation.py) and contour lines (contours.py) ----
 
 @app.get("/elevation/{level}/{row}/{col}")
 def elevation_tile(level: int, row: int, col: int):
-    return Response(elevation.tile(level, row, col).tobytes(), media_type="application/octet-stream")
+    return Response(elevation.tile(level, row, col).tobytes(), media_type="application/octet-stream",
+                    headers=tiles.CACHE_HEADERS)
 
 
 @app.get("/contours/{level}/{row}/{col}.png")
@@ -59,7 +68,7 @@ def _stat(stat: str):
 def temperature_tile(level: int, row: int, col: int, ls: float = 0, local_time: float = 14, stat: str = "",
                      low: float | None = None, high: float | None = None):
     png = temperature.tile_png(level, row, col, ls=ls, local_time=local_time, stat=_stat(stat), low=low, high=high)
-    return Response(png, media_type="image/png")
+    return _png(png)
 
 
 @app.get("/temperature/range")

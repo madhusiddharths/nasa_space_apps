@@ -21,7 +21,7 @@ function addTemperatureLayer(map, view, { BaseTileLayer, container, tileInfo, fu
   // ---- The layer ----
   const tileUrl = (level, row, col) => {
     const fit = state.fit ? `&low=${state.fit.low}&high=${state.fit.high}` : "";
-    return `/temperature/${level}/${row}/${col}.png?ls=${state.ls}&local_time=${state.localTime}&stat=${state.stat}${fit}`;
+    return `/temperature/${level}/${row}/${col}.png?ls=${state.ls}&local_time=${state.localTime}&stat=${state.stat}${fit}&v=${TILES_VERSION}`;
   };
   const TemperatureLayer = BaseTileLayer.createSubclass({
     // A tile that was requested before the sliders moved is fetched again, so the map never mixes settings.
