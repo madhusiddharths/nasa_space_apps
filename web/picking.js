@@ -77,5 +77,5 @@ function addGroundPicking(view, { Point }) {
     return groundPoint(event.x, event.y);
   };
 
-  return { groundPoint };
+  return { groundPoint, elevation: ground };
 }

@@ -1,8 +1,9 @@
 // Surface temperature layer: map tiles and point readouts come from server.py
 // (/temperature/tile, /temperature/point), which reads temperature.py.
-// index.html calls addTemperatureLayer(map, view, { BaseTileLayer, Expand, tileInfo, fullExtent }).
+// index.html calls addTemperatureLayer(map, view, { BaseTileLayer, container, tileInfo, fullExtent });
+// the panel is put inside `container` (the dock's temperature panel).
 
-function addTemperatureLayer(map, view, { BaseTileLayer, Expand, tileInfo, fullExtent }) {
+function addTemperatureLayer(map, view, { BaseTileLayer, container, tileInfo, fullExtent }) {
   const MARS_WKID = 104971;
   // Colour stops and ranges must match RAMP and COLOR_RANGES in temperature.py.
   const RAMP = ["#0d0887", "#5402a3", "#8b0aa5", "#b93289", "#db5c68", "#f48849", "#febc2b", "#f0f921"];
@@ -63,7 +64,7 @@ function addTemperatureLayer(map, view, { BaseTileLayer, Expand, tileInfo, fullE
 
   const panel = document.createElement("div");
   panel.id = "tempPanel";
-  panel.className = "esri-widget esri-widget--panel";
+  panel.className = "esri-widget";
   panel.innerHTML = `
     <h3>Surface temperature</h3>
     <label style="margin-top:0"><input type="checkbox" id="tempShow"> Show on map</label>
@@ -83,8 +84,7 @@ function addTemperatureLayer(map, view, { BaseTileLayer, Expand, tileInfo, fullE
     </div>
     <div class="readout" id="tempReadout"><span class="hint">Turn the layer on and click the ground for a 24-hour forecast of that spot.</span></div>
   `;
-  view.ui.add(new Expand({ view, content: panel, expandIconClass: "esri-icon-environment-settings",
-                           expandTooltip: "Surface temperature", expanded: false }), "top-right");
+  container.appendChild(panel);
 
   const $ = (id) => panel.querySelector("#" + id);
   let lastPoint = null;

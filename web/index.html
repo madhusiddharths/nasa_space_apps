@@ -11,13 +11,17 @@
   <!-- The look of the viewer: tokens, Esri widget restyling and our panels. Loaded after Esri's theme. -->
   <link rel="stylesheet" href="theme.css" />
   <script src="https://js.arcgis.com/4.26/"></script>
+  <script src="layout.js"></script>
   <script src="picking.js"></script>
   <script src="temperature.js"></script>
   <script src="routing.js"></script>
 </head>
 <body>
+  <!-- Layout (web/layout.js): a rail of modes, one docked panel, the map, and a status strip. -->
+  <nav id="rail" aria-label="Modes"></nav>
+  <aside id="dock"></aside>
   <div id="viewDiv"></div>
-  <div id="appTitle">Interplanetary Survival Guide<span>Mars</span></div>
+  <footer id="statusBar"></footer>
   <!-- Radiation legend. The scale ends mirror DOSE_SCALE and SHELTER_SCALE in radiation.py. -->
   <div id="radiationLegend" class="legend" hidden>
     <b>Radiation (Gale crater)</b>
@@ -37,7 +41,6 @@
       (0.64 mSv/day at the landing site). Quiet-Sun conditions; solar storms not included.
     </div>
   </div>
-  <div id="optionsDiv"><div class="buttonsContainer" id="bookmarkButtons"></div></div>
 
   <script>
     // Base map: same services, layers, widgets and bookmarks as the Murray Lab
@@ -54,9 +57,9 @@
       "esri/layers/GeoJSONLayer", "esri/layers/GroupLayer", "esri/layers/GraphicsLayer", "esri/Graphic", "esri/geometry/Point",
       "esri/geometry/coordinateFormatter",
       "esri/widgets/CoordinateConversion", "esri/widgets/LayerList", "esri/widgets/AreaMeasurement3D",
-      "esri/widgets/Bookmarks", "esri/widgets/ElevationProfile", "esri/widgets/Expand",
+      "esri/widgets/Bookmarks", "esri/widgets/ElevationProfile",
     ], (Map, Camera, SceneView, BaseElevationLayer, BaseTileLayer, TileInfo, TileLayer, FeatureLayer, GeoJSONLayer, GroupLayer, GraphicsLayer, Graphic, Point, coordinateFormatter,
-        CoordinateConversion, LayerList, AreaMeasurement3D, Bookmarks, ElevationProfile, Expand) => {
+        CoordinateConversion, LayerList, AreaMeasurement3D, Bookmarks, ElevationProfile) => {
 
       // Tiling scheme of the CTX imagery, for layers served by server.py.
       const MARS_EXTENT = { xmin: -180, ymin: -90, xmax: 180, ymax: 90, spatialReference: { wkid: MARS_WKID } };
@@ -289,8 +292,15 @@
         layers: [radDose, radShelter, radShelters, radMeasured],
       });
 
+      // ---- Layout: the rail and the docked panels (web/layout.js). Each feature below puts
+      // its panel into dock.panel(mode), or into a titled section from dock.slot(mode, heading). ----
+      const dock = addDock("route");
+      window.marsDock = dock;
+
       // Surface temperature for any season and time of day, with its own panel (web/temperature.js).
-      window.marsTemperature = addTemperatureLayer(map, view, { BaseTileLayer, Expand, tileInfo: marsTileInfo(9), fullExtent: MARS_EXTENT });
+      window.marsTemperature = addTemperatureLayer(map, view, {
+        BaseTileLayer, container: dock.panel("temperature"), tileInfo: marsTileInfo(9), fullExtent: MARS_EXTENT,
+      });
       const temperatureLayer = window.marsTemperature.layer;
       map.remove(temperatureLayer);               // it joins the data layers below
 
@@ -340,24 +350,25 @@
       [ctxLayer, dataGroup, ...DATA_LAYERS].forEach((layer) => layer.watch("visible", restyleContours));
       restyleContours();
 
-      // ---- Widgets ----
-      view.ui.move(["navigation-toggle", "compass", "zoom"], "top-right");
+      // ---- Esri widgets: map controls bottom-right on the map, the rest inside the dock ----
+      view.ui.move(["zoom", "compass", "navigation-toggle"], "bottom-right");   // before emptying the corner they start in
       view.ui.empty("top-left");
 
-      const ccWidget = new CoordinateConversion({ view });
-      ccWidget.formats.find((f) => f.name === "xy").currentPattern = "Lat: Y°N, Long: X°E";
-      view.ui.add(new Expand({ view, content: ccWidget, expanded: window.innerWidth > 544 }), "top-left", 0);
+      new LayerList({ view, container: dock.slot("layers", "Layers") });
 
-      const expand = (content) => new Expand({ view, content, expanded: false, group: "top-left" });
-      view.ui.add(expand(new AreaMeasurement3D({ view })), "top-left", 1);
-      view.ui.add(expand(new ElevationProfile({ view })), "top-left", 2);
-      view.ui.add(expand(new LayerList({ view })), "top-left", 3);
-      view.ui.add(expand(new Bookmarks({ view, editingEnabled: true })), "top-left", 4);
+      const findSlot = dock.slot("places", "Find a place");        // filled further down
+      const placesSlot = dock.slot("places", "Landing sites and landmarks");
+      new Bookmarks({ view, editingEnabled: true, container: dock.slot("places", "Saved views") });
+
+      const ccWidget = new CoordinateConversion({ view, container: dock.slot("tools", "Coordinates under the cursor") });
+      ccWidget.formats.find((f) => f.name === "xy").currentPattern = "Lat: Y°N, Long: X°E";
+      new AreaMeasurement3D({ view, container: dock.slot("tools", "Measure an area") });
+      new ElevationProfile({ view, container: dock.slot("tools", "Elevation profile") });
 
       // Astronaut route planner: safest and quickest trip between two points, by rover and on foot
       // (web/routing.js). Its search boxes read coordinates in the format chosen in the coordinate widget.
       window.marsRouting = addRouting(map, view, {
-        GraphicsLayer, GroupLayer, Graphic, Expand, coordinateFormatter,
+        GraphicsLayer, GroupLayer, Graphic, container: dock.panel("route"), coordinateFormatter,
         selectedFormat: () => { const c = ccWidget.conversions.getItemAt(0); return c && c.format && c.format.name; },
       });
 
@@ -432,7 +443,7 @@
           .catch(() => { out.textContent = "Radiation service not reachable."; });
       });
 
-      // ---- Bookmark buttons: [label, lon, lat, altitude m, heading, tilt] ----
+      // ---- Places panel: [label, lon, lat, altitude m, heading, tilt] ----
       const places = [
         ["Jezero (Perseverance)", 77.49, 18.25, 3000, 335, 70],
         ["Gale (Curiosity)", 137.06741, -4.37168, 7063, 145.54, 73.37],
@@ -451,7 +462,7 @@
         ["Terra Sirenum", -157.35661, -39.46969, 1905.486, 343.47, 61.06],
         ["Eberswalde", -33.30974, -23.69724, 4353.219, 244.68, 71.8],
       ];
-      const buttons = document.getElementById("bookmarkButtons");
+      placesSlot.className = "place-list";
       for (const [label, x, y, z, heading, tilt] of places) {
         const camera = new Camera({ position: { x, y, z, spatialReference: MARS_WKID }, heading, tilt });
         const b = document.createElement("button");
@@ -459,8 +470,28 @@
         b.addEventListener("click", () => {
           view.goTo(camera, { speedFactor: 0.3 }).catch((e) => { if (e.name !== "AbortError") console.error(e); });
         });
-        buttons.appendChild(b);
+        placesSlot.appendChild(b);
       }
+
+      // Find a place: a crater or feature name, a grid tile, or coordinates; Enter flies there.
+      findSlot.innerHTML = `<input type="text" class="esri-input" autocomplete="off" spellcheck="false"
+        placeholder="Name, grid tile or coordinates" aria-label="Find a place: name, grid tile or coordinates">
+        <div class="hint" role="status"></div>`;
+      const findInput = findSlot.querySelector("input"), findHint = findSlot.querySelector(".hint");
+      findInput.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter" || !findInput.value.trim()) return;
+        findHint.textContent = "Searching…";
+        window.marsRouting.find(findInput.value).then((found) => {
+          if (!found) { findHint.textContent = "Nothing found. Try a crater name, a grid tile such as E136_N-08, or coordinates."; return; }
+          const [lon, lat] = found.at;
+          findHint.textContent = `${found.name ? found.name + ": " : ""}${Math.abs(lat).toFixed(3)}°${lat < 0 ? "S" : "N"}, ${lon.toFixed(3)}°E`;
+          view.goTo({ target: new Point({ x: lon, y: lat, spatialReference: view.spatialReference }), scale: 1500000, tilt: 45 }, { duration: 1200 })
+            .catch((err) => { if (err.name !== "AbortError") console.error(err); });
+        });
+      });
+
+      // Status strip along the bottom (web/layout.js).
+      addStatusBar(view, { picking: window.marsPicking, season: () => window.marsTemperature.state.ls });
 
       // Handles for teammates / console debugging.
       window.marsMap = map;

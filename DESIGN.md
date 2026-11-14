@@ -28,6 +28,44 @@ lines of light.
    not add a framework or bundler without the team agreeing.
 7. **Keep the Esri credit line** at the bottom of the map. It is a terms-of-use requirement.
 
+## Layout
+
+The page is four fixed regions (`web/layout.js`, styled in the "Layout" section of `theme.css`):
+
+```
++------+-----------+--------------------------------+
+| rail |   dock    |              map               |
+|      |           |                    legends (TR) |
+|      |           |                                |
+|      |           |               map controls (BR) |
++------+-----------+--------------------------------+
+| status strip                                      |
++---------------------------------------------------+
+```
+
+- **Rail** (left edge): one button per mode: Route, Layers, Temp, Places, Tools. The open
+  mode is lit. Clicking it again closes the dock and gives the map the full width.
+- **Dock** (beside the rail, 372 px): shows the open mode's panel, full height, scrolling if
+  long. Content inside the dock is flat: no borders, brackets or shadows of its own, because
+  the dock is the surface. Sections inside a panel have a capital-letter heading and a
+  hairline between them.
+- **Map**: nothing floats over it except the legends (top right, only for layers that are
+  on), the zoom, compass and pan/rotate controls (bottom right), and the Esri credit line.
+- **Status strip** (bottom): position and elevation under the cursor, view height, and for
+  the last clicked spot the day's ground temperature range and the radiation dose.
+- **There is no top bar,** and no pop-out buttons over the map. Do not add either.
+
+Where a new feature goes:
+
+- A feature with controls gets a panel in the dock. If it fits an existing mode, add a
+  section with `dock.slot(mode, "Heading")`. If it is a mode of its own, add one line to
+  `DOCK_MODES` in `layout.js` and put the panel in `dock.panel(mode)`. Keep the rail to
+  about seven modes.
+- A live value about the spot under the cursor or the clicked spot goes in the status strip.
+- A key for a map layer is a legend (class `legend`), shown only while its layer is on.
+- Do not use Esri's `Expand` widget or `view.ui.add(...)` for panels; those bring back the
+  floating layout we moved away from.
+
 ## Tokens
 
 Defined in `:root` in `web/theme.css`.
@@ -66,9 +104,10 @@ Fonts load from Google Fonts in `index.html`, with Segoe UI and the system font 
 
 ## Components
 
-- **Panel:** `background: var(--holo-panel)`, a 1 px `--holo-line` border, square corners,
-  a light backdrop blur. Esri panels and popups get this automatically; for your own
-  container, add the class `holo-panel` or `legend`.
+- **Floating panel** (legends, popups, anything over the map): `background: var(--holo-panel)`,
+  a 1 px `--holo-line` border, square corners, a light backdrop blur. Esri popups get this
+  automatically; for your own container, add the class `holo-panel` or `legend`. Panels in
+  the dock do not use this; see Layout.
 - **Button:** transparent, 1 px `--holo-line-strong` border, cyan capitals. Hover fills with
   `--holo-raise-strong`. A pressed or active button is filled cyan with dark text and the glow
   (`aria-pressed="true"`).
@@ -118,9 +157,9 @@ Fonts load from Google Fonts in `index.html`, with Segoe UI and the system font 
   `addLegend` so it shows only while the layer does.
 - **A new marker or outline layer:** build it with `GeoJSONLayer` and add it to the map; it
   draws above the contour lines.
-- **A new panel:** build the HTML in its own `web/*.js` file, give the container an id, and
-  add its styles as a new section in `theme.css` using the tokens and the components above.
-  Copy the structure of `#routePanel`.
+- **A new panel:** build the HTML in its own `web/*.js` file, append it to the dock element
+  it is given (see Layout), give it an id, and add its styles as a new section in
+  `theme.css` using the tokens and the components above. Copy the structure of `#routePanel`.
 - **A new colour or font:** add a token first, and add it to the table above.
 
 ## Words
@@ -131,5 +170,5 @@ Fonts load from Google Fonts in `index.html`, with Segoe UI and the system font 
 
 ## Changing the look itself
 
-A change to the tokens, the fonts, the panel shape or the route style changes the whole app.
+A change to the tokens, the fonts, the panel shape, the layout regions or the route style changes the whole app.
 Agree it with the team first, then update this file in the same commit.

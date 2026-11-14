@@ -42,7 +42,7 @@ names, craters) and the route draw on top.
 
 Every layer can also be read in Python on a shared grid; see "Using the layers in Python".
 
-**Astronaut route planner.** Open "Astronaut route" (the directions button, top left) and set a
+**Astronaut route planner.** Open "Route" in the rail on the left edge and set a
 start A and a destination B up to 500 km apart. Each can be typed into its search box (a crater
 or other IAU feature name, a CTX grid tile such as `E136_N-08`, or coordinates in any format of
 the coordinate widget: XY, basemap, DD, DDM, DMS, MGRS, USNG, UTM) or picked on the map. The trip

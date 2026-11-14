@@ -2,10 +2,11 @@
 // A and B are set by searching (a place name, a CTX grid tile, or coordinates in any of the
 // coordinate widget's formats) or by picking them on the map.
 // The routes come from server.py (/routing/astronaut), which runs routing.py.
-// index.html calls addRouting(map, view, { GraphicsLayer, GroupLayer, Graphic, Expand, coordinateFormatter, selectedFormat }).
+// index.html calls addRouting(map, view, { GraphicsLayer, GroupLayer, Graphic, container, coordinateFormatter, selectedFormat });
+// the panel is put inside `container` (the dock's route panel).
 // The panel is styled in theme.css; the colours drawn on the map are in HOLO below.
 
-function addRouting(map, view, { GraphicsLayer, GroupLayer, Graphic, Expand, coordinateFormatter, selectedFormat }) {
+function addRouting(map, view, { GraphicsLayer, GroupLayer, Graphic, container, coordinateFormatter, selectedFormat }) {
   const MARS_WKID = 104971;
   // Colours drawn on the map and set inline in the panel; they mirror the tokens in theme.css.
   const HOLO = { glass: [5, 11, 17], bright: "#e9fbff", cyan: "#6fd3f2", amber: "#ffb000", red: "#ff5a4a", magenta: "#e86bff" };
@@ -45,7 +46,7 @@ function addRouting(map, view, { GraphicsLayer, GroupLayer, Graphic, Expand, coo
 
   const panel = document.createElement("div");
   panel.id = "routePanel";
-  panel.className = "esri-widget esri-widget--panel";
+  panel.className = "esri-widget";
   panel.innerHTML = `
     <h3>Astronaut route</h3>
     ${placeRow("A", "start", "Start")}
@@ -71,8 +72,7 @@ function addRouting(map, view, { GraphicsLayer, GroupLayer, Graphic, Expand, coo
     <div class="row"><button id="routeClear">Clear route</button></div>
     <div class="note" id="routeNote"></div>
   `;
-  view.ui.add(new Expand({ view, content: panel, expandIconClass: "esri-icon-directions",
-                           expandTooltip: "Astronaut route", expanded: false, group: "top-left" }), "top-left");
+  container.appendChild(panel);
 
   const $ = (id) => panel.querySelector("#" + id);
   $("routeSeason").value = state.ls;
@@ -191,6 +191,15 @@ Lines of light: solid by rover, dotted on foot. P: where the rover is boarded or
     const rank = (key) => (key === q ? 0 : key.startsWith(q) ? 1 : key.includes(" " + q) ? 2 : key.includes(q) ? 3 : -1);
     return list.map((p) => [rank(p.key), p]).filter(([r]) => r >= 0)
       .sort((x, y) => x[0] - y[0] || x[1].key.length - y[1].key.length).slice(0, limit).map(([, p]) => p);
+  }
+
+  // What a piece of text points at: coordinates, a grid reference, or the best-matching name.
+  // Resolves to { at: [lon, lat], name } or null. Used by the Places panel too.
+  function find(text) {
+    const coords = parseLatLon(text);
+    if (coords) return Promise.resolve({ at: coords, name: "" });
+    return parseGrid(text).then((grid) => (grid ? { at: grid, name: text.trim().toUpperCase() }
+      : loadPlaces().then((all) => matches(all, text, 1)[0] || null)));
   }
 
   // A search box: suggestions while typing, Enter takes coordinates or the first suggestion.
@@ -460,7 +469,7 @@ Lines of light: solid by rover, dotted on foot. P: where the rover is boarded or
   // plan([lon, lat], [lon, lat]) sets both points and resolves when the routes are drawn.
   // search("A" or "B", text) types into a search box and submits it. parseLatLon is the coordinate reader.
   return {
-    layer, markers, group, state, parseLatLon,
+    layer, markers, group, state, parseLatLon, find,
     plan: (start, end) => {
       Object.assign(state, { start, end, names: { start: "", end: "" }, picking: null });
       inputs.start.value = position(start);
