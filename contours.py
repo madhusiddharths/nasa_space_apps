@@ -13,7 +13,9 @@ from tiles import TILE_PX
 
 MAX_LEVEL = 12  # 5 m/px on screen; the 200 m elevation data is smoothly upsampled here
 INDEX_EVERY = 5
-LINE_RGB = (110, 55, 15)  # topo-map brown
+LINE_RGB = (63, 182, 224)     # holographic blue, as in web/theme.css; reads on the imagery and on bare dark ground
+LABEL_RGB = (233, 251, 255)   # bright label text
+LABEL_EDGE = (5, 11, 17, 235) # dark edge around the label
 LABEL_FONT = ImageFont.load_default(size=13)
 
 
@@ -52,7 +54,7 @@ def tile_png(level, row, col):
 
     rgba = np.zeros((TILE_PX, TILE_PX, 4), np.uint8)
     rgba[..., :3] = LINE_RGB
-    rgba[..., 3] = np.where(bold, 255, np.where(lines, 170, 0))
+    rgba[..., 3] = np.where(bold, 255, np.where(lines, 150, 0))
 
     # Label up to two index contours, each at its pixel nearest the tile centre.
     # Labels stay inside a margin so they are never cut by a tile edge.
@@ -66,6 +68,6 @@ def tile_png(level, row, col):
         for value in sorted(np.unique(values), key=lambda v: distance[values == v].min())[:2]:
             i = np.argmin(np.where(values == value, distance, np.inf))
             draw.text((xs[i], ys[i]), f"{int(value)}", font=LABEL_FONT, anchor="mm",
-                      fill=LINE_RGB + (255,), stroke_width=2, stroke_fill=(255, 255, 255, 230))
+                      fill=LABEL_RGB + (255,), stroke_width=2, stroke_fill=LABEL_EDGE)
         rgba = np.array(image)
     return tiles.png(rgba)

@@ -2,18 +2,21 @@
 // A and B are set by searching (a place name, a CTX grid tile, or coordinates in any of the
 // coordinate widget's formats) or by picking them on the map.
 // The routes come from server.py (/routing/astronaut), which runs routing.py.
-// index.html calls addRouting(map, view, { GraphicsLayer, Graphic, Expand, coordinateFormatter, selectedFormat }).
+// index.html calls addRouting(map, view, { GraphicsLayer, GroupLayer, Graphic, Expand, coordinateFormatter, selectedFormat }).
+// The panel is styled in theme.css; the colours drawn on the map are in HOLO below.
 
-function addRouting(map, view, { GraphicsLayer, Graphic, Expand, coordinateFormatter, selectedFormat }) {
+function addRouting(map, view, { GraphicsLayer, GroupLayer, Graphic, Expand, coordinateFormatter, selectedFormat }) {
   const MARS_WKID = 104971;
+  // Colours drawn on the map and set inline in the panel; they mirror the tokens in theme.css.
+  const HOLO = { glass: [5, 11, 17], bright: "#e9fbff", cyan: "#6fd3f2", amber: "#ffb000", red: "#ff5a4a", magenta: "#e86bff" };
   const ROUTES = {
-    safest: { label: "Safest", color: "#00e676" },
-    quickest: { label: "Quickest", color: "#40a9ff" },
+    safest: { label: "Safest", color: "#4fe3ff" },
+    quickest: { label: "Quickest", color: "#aab8ff" },
   };
   // Hazard levels as routing.py numbers them: 0 Clear, 1 Caution, 2 Danger, 3 Extreme.
   const LEVELS = ["Clear", "Caution", "Danger", "Extreme"];
-  const LEVEL_COLORS = [null, "#ffc400", "#ff3d00", "#d500f9"];
-  const BAD = "#ff6e6e";
+  const LEVEL_COLORS = [null, HOLO.amber, HOLO.red, HOLO.magenta];
+  const BAD = HOLO.red;
   const SEASONS = [[0, "Northern spring"], [90, "Northern summer"], [180, "Northern autumn"], [270, "Northern winter"]];
   const MODES = { drive: "driving", walk: "walking" };
 
@@ -23,50 +26,16 @@ function addRouting(map, view, { GraphicsLayer, Graphic, Expand, coordinateForma
     shown: { safest: true, quickest: true }, result: null,
   };
 
-  const layer = new GraphicsLayer({ title: "Astronaut Route", elevationInfo: { mode: "on-the-ground" } });
-  map.add(layer);
+  // Lines lie on the ground; markers float above it on a thin stem.
+  const layer = new GraphicsLayer({ title: "Route lines", elevationInfo: { mode: "on-the-ground" } });
+  const markers = new GraphicsLayer({ title: "Route markers", elevationInfo: { mode: "relative-to-ground" } });
+  map.add(new GroupLayer({ title: "Astronaut Route", layers: [layer, markers], listMode: "hide-children" }));
 
-  // ---- Panel ----
-  const style = document.createElement("style");
-  style.textContent = `
-    #routePanel { width: 320px; padding: 12px; font-size: 13px; line-height: 1.4; max-height: max(220px, calc(100vh - 380px)); overflow-y: auto; box-sizing: border-box; }
-    #routePanel h3 { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
-    #routePanel button { padding: 5px 8px; border: 1px solid #555; background: none; color: inherit; cursor: pointer; border-radius: 3px; font: inherit; }
-    #routePanel button[aria-pressed=true] { background: #d1d1d1; color: #242424; border-color: #d1d1d1; }
-    #routePanel .row { display: flex; gap: 6px; margin-top: 8px; }
-    #routePanel .row > * { flex: 1; min-width: 0; }
-    #routePanel select, #routePanel input[type=text], #routePanel input[type=number] {
-      width: 100%; box-sizing: border-box; background: #242424; color: inherit; border: 1px solid #555; border-radius: 3px; padding: 4px 6px; font: inherit; }
-    #routePanel .place { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
-    #routePanel .place b { width: 12px; }
-    #routePanel .place input { flex: 1; min-width: 0; }
-    #routePanel .place button { flex: none; }
-    #routePanel .suggest { margin: 2px 0 0 18px; border: 1px solid #555; border-radius: 3px; }
-    #routePanel .suggest div { padding: 3px 6px; cursor: pointer; }
-    #routePanel .suggest div[aria-selected=true], #routePanel .suggest div:hover { background: #3a3a3a; }
-    #routePanel .suggest small { opacity: 0.7; margin-left: 6px; }
-    #routePanel label.field { display: block; font-size: 11px; opacity: 0.9; }
-    #routePanel .points { margin-top: 6px; font-variant-numeric: tabular-nums; }
-    #routePanel .hint { opacity: 0.7; }
-    #routePanel .verdict { margin-top: 12px; padding: 8px; border-left: 3px solid #00e676; background: rgba(255, 255, 255, 0.06); }
-    #routePanel .card { margin-top: 12px; padding-top: 10px; border-top: 1px solid #444; }
-    #routePanel .card h4 { margin: 0 0 4px; font-size: 14px; font-weight: 600; }
-    #routePanel .card h4 label { cursor: pointer; }
-    #routePanel .swatch { display: inline-block; width: 18px; height: 4px; vertical-align: middle; margin-right: 6px; }
-    #routePanel table { width: 100%; border-collapse: collapse; }
-    #routePanel td { padding: 1px 0; }
-    #routePanel td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
-    #routePanel .hazard { margin-top: 4px; padding-left: 8px; border-left: 3px solid; }
-    #routePanel .hazard b { font-weight: 600; }
-    #routePanel .warn { margin-top: 4px; color: #ffc400; }
-    #routePanel .bad { margin-top: 4px; color: ${BAD}; }
-    #routePanel .note { margin-top: 12px; font-size: 11px; opacity: 0.7; }
-  `;
-  document.head.appendChild(style);
+  // ---- Panel (styled in theme.css) ----
 
   const placeRow = (letter, which, what) => `
     <div class="place">
-      <b>${letter}</b>
+      <b><span>${letter}</span></b>
       <input type="text" id="routeSearch${letter}" data-which="${which}" autocomplete="off" spellcheck="false"
              placeholder="Place, grid tile or coordinates" aria-label="${what}: search by place name, grid tile or coordinates">
       <button id="routePick${letter}" title="Then click the map where the trip ${which === "start" ? "starts" : "ends"}">Pick on map</button>
@@ -112,7 +81,7 @@ function addRouting(map, view, { GraphicsLayer, Graphic, Expand, coordinateForma
 
   const note = (n) => {
     $("routeNote").innerHTML = `
-      Solid line: by rover. Dotted line: on foot. P: where the rover is boarded or parked
+Lines of light: solid by rover, dotted on foot. P: where the rover is boarded or parked
       (level, firm ground that is easy to drive into and walk away from).
       Hazards on the lines: <span style="color:${LEVEL_COLORS[1]}">Caution</span>,
       <span style="color:${LEVEL_COLORS[2]}">Danger</span>, <span style="color:${LEVEL_COLORS[3]}">Extreme</span>;
@@ -285,48 +254,81 @@ function addRouting(map, view, { GraphicsLayer, Graphic, Expand, coordinateForma
   const stroke = (color, width, lineStyle = "solid") => ({ type: "simple-line", color, width, style: lineStyle, cap: "round", join: "round" });
   const addLine = (line, color, width, extra = {}, lineStyle) =>
     layer.add(new Graphic({ geometry: polyline(line), symbol: stroke(color, width, lineStyle), ...extra }));
-  const addPoint = (p, letter, color = "white", extra = {}) => {
+  const rgba = (hex, alpha) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).concat(alpha);
+
+  // A line of light: a wide faint halo, a dark casing so it reads on any ground, the
+  // coloured core, and a thin bright centre. Walked lines are dotted and have no centre.
+  function addBeam(line, color, { dotted = false, width = 3, extra = {} } = {}) {
+    addLine(line, rgba(color, 0.2), width + 10);
+    addLine(line, [...HOLO.glass, 0.8], width + 3);
+    addLine(line, color, width, extra, dotted ? "short-dot" : "solid");
+    if (!dotted) addLine(line, [255, 255, 255, 0.85], 1);
+  }
+
+  // A marker: a diamond with a letter, floating above the ground on a thin stem, and a
+  // small dot where the stem meets the ground.
+  const diamond = (letter, filled) => "data:image/svg+xml," + encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+      <path d="M32 3 61 32 32 61 3 32Z" fill="${filled ? HOLO.cyan : "#050b11"}" fill-opacity="${filled ? 0.92 : 0.85}" stroke="${HOLO.bright}" stroke-width="3"/>
+      <path d="M32 12 52 32 32 52 12 32Z" fill="none" stroke="${filled ? "#050b11" : HOLO.cyan}" stroke-opacity="0.45" stroke-width="1.5"/>
+      <text x="32" y="41.5" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="700" fill="${filled ? "#050b11" : HOLO.bright}">${letter}</text>
+    </svg>`);
+  function addMarker(p, letter, { filled = false, size = 28, extra = {} } = {}) {
     const geometry = { type: "point", x: p[0], y: p[1], spatialReference: { wkid: MARS_WKID } };
-    layer.add(new Graphic({ geometry, symbol: { type: "simple-marker", color, size: 20, outline: { color: "black", width: 1.5 } }, ...extra }));
-    layer.add(new Graphic({ geometry, symbol: { type: "text", text: letter, color: "black", yoffset: -4.5, font: { size: 11, weight: "bold" } } }));
-  };
+    layer.add(new Graphic({ geometry, symbol: { type: "simple-marker", color: HOLO.bright, size: 6, outline: { color: [...HOLO.glass, 0.9], width: 1.5 } } }));
+    markers.add(new Graphic({
+      geometry,
+      symbol: {
+        type: "point-3d",
+        symbolLayers: [{ type: "icon", resource: { href: diamond(letter, filled) }, size }],
+        verticalOffset: { screenLength: 34, maxWorldLength: 500000, minWorldLength: 0 },
+        callout: { type: "line", size: 1, color: rgba(HOLO.bright, 0.9), border: { color: [...HOLO.glass, 0.6] } },
+      },
+      ...extra,
+    }));
+  }
 
   function draw() {
     layer.removeAll();
+    markers.removeAll();
     const routes = state.result ? state.result.routes : {};
     // Quickest first, so the safest line stays on top where the two share ground.
     for (const name of ["quickest", "safest"]) {
       const route = routes[name];
       if (!route || !state.shown[name] || (name === "quickest" && route.same_as_safest && state.shown.safest)) continue;
-      addLine(route.line, "black", 7);
-      addLine(route.line, ROUTES[name].color, 4);
-      for (const leg of route.legs) {            // walked legs get a dotted black core
-        if (leg.mode === "walk") addLine(route.line.slice(leg.from, leg.to + 1), "black", 2, {}, "short-dot");
+      for (const leg of route.legs) {
+        addBeam(route.line.slice(leg.from, leg.to + 1), ROUTES[name].color, { dotted: leg.mode === "walk" });
       }
       for (const s of route.stretches) {
         const part = route.line.slice(s.from, s.to + 1);
-        if (s.unavoidable) addLine(part, "white", 11);
-        addLine(part, LEVEL_COLORS[s.level], s.unavoidable ? 7 : 4, {
-          attributes: { hazards: s.hazards.join("; "), length: length(s.distance_m), time: duration(Math.round(s.minutes)) },
-          popupTemplate: {
-            title: `${LEVELS[s.level]}${s.unavoidable ? ", unavoidable" : ""} (${ROUTES[name].label.toLowerCase()} route)`,
-            content: `{hazards}<br>{length}, about {time} of ${MODES[s.mode]}`,
+        if (s.unavoidable) addLine(part, [255, 255, 255, 0.9], 10);
+        addBeam(part, LEVEL_COLORS[s.level], {
+          dotted: s.mode === "walk", width: s.unavoidable ? 5 : 3,
+          extra: {
+            attributes: { hazards: s.hazards.join("; "), length: length(s.distance_m), time: duration(Math.round(s.minutes)) },
+            popupTemplate: {
+              title: `${LEVELS[s.level]}${s.unavoidable ? ", unavoidable" : ""} (${ROUTES[name].label.toLowerCase()} route)`,
+              content: `{hazards}<br>{length}, about {time} of ${MODES[s.mode]}`,
+            },
           },
         });
       }
       for (const spot of route.parking) {
-        addPoint(spot.at, "P", "#8ec5ff", {
-          attributes: { slope: spot.slope_deg, where: position(spot.at) },
-          popupTemplate: {
-            title: spot.kind === "board" ? "Rover pickup" : "Rover parking",
-            content: (spot.kind === "board" ? "The crew boards the rover here." : "The rover is parked here; the crew goes on from here.") +
-                     "<br>Ground slope {slope}°, firm ground<br>{where}",
+        addMarker(spot.at, "P", {
+          filled: true, size: 22,
+          extra: {
+            attributes: { slope: spot.slope_deg, where: position(spot.at) },
+            popupTemplate: {
+              title: spot.kind === "board" ? "Rover pickup" : "Rover parking",
+              content: (spot.kind === "board" ? "The crew boards the rover here." : "The rover is parked here; the crew goes on from here.") +
+                       "<br>Ground slope {slope}°, firm ground<br>{where}",
+            },
           },
         });
       }
     }
-    if (state.start) addPoint(state.start, "A");
-    if (state.end) addPoint(state.end, "B");
+    if (state.start) addMarker(state.start, "A");
+    if (state.end) addMarker(state.end, "B");
   }
 
   // ---- Results ----
@@ -340,15 +342,19 @@ function addRouting(map, view, { GraphicsLayer, Graphic, Expand, coordinateForma
     return `
       <div class="card">
         <h4><label><input type="checkbox" data-route="${name}" ${state.shown[name] ? "checked" : ""}>
-          <span class="swatch" style="background:${color}"></span>${label} route${route.viable ? "" : ` <span style="color:${BAD}">(not viable)</span>`}</label></h4>
+          <span class="swatch" style="background:${color};color:${color}"></span>${label} route${route.viable ? "" : ` <span style="color:${BAD}">(not viable)</span>`}</label></h4>
         ${same ? `<div class="hint">Same as the safest route: nothing quicker is acceptable.</div>` : `
         ${route.reasons.map((w) => `<div class="bad"><b>Not viable:</b> ${w}</div>`).join("")}
+        <div class="total">${duration(route.minutes)}<small>${route.distance_km.toFixed(1)} km, one way</small></div>
+        <div class="split" style="color:${color}" title="Share of the distance by rover (solid) and on foot (dotted)">
+          ${route.drive_km ? `<i style="flex:${route.drive_km};background:currentColor"></i>` : ""}
+          ${route.walk_km ? `<i class="walk" style="flex:${route.walk_km}"></i>` : ""}
+        </div>
         <table>
-          <tr><td>Total time</td><td>${duration(route.minutes)}</td></tr>
-          <tr><td>Distance</td><td>${route.distance_km.toFixed(1)} km</td></tr>
           <tr><td>By rover</td><td>${leg(route.drive_km, route.drive_minutes)}</td></tr>
           <tr><td>On foot</td><td>${leg(route.walk_km, route.walk_minutes)}</td></tr>
-          <tr><td>Rover range used</td><td>${route.range_used_km.toFixed(0)} of ${r.range_km} km</td></tr>
+          <tr><td style="border:none">Rover range used</td><td style="border:none">${route.range_used_km.toFixed(0)} of ${r.range_km} km</td></tr>
+          <tr><td colspan="2" style="padding:0"><div class="meter ${route.range_used_km > r.range_km ? "is-bad" : ""}"><i style="width:${Math.min(100, route.range_used_km / r.range_km * 100).toFixed(0)}%"></i></div></td></tr>
           <tr><td>Climb / descent</td><td>${route.climb_m} m / ${route.descent_m} m</td></tr>
           <tr><td>Steepest ground</td><td>${route.max_slope_deg.toFixed(0)}°</td></tr>
           <tr><td>Coldest ground</td><td>${route.coldest_c} °C</td></tr>
@@ -371,8 +377,8 @@ function addRouting(map, view, { GraphicsLayer, Graphic, Expand, coordinateForma
     if (r) {
       const clear = r.unavoidable_level === 0;
       $("routeResult").innerHTML = `
-        <div class="verdict" style="border-color:${r.viable ? ROUTES.safest.color : BAD}">${r.viable ? "" : `<b style="color:${BAD}">Not viable.</b> `}${r.viability}</div>
-        <div class="verdict" style="margin-top:6px;border-color:${clear ? ROUTES.safest.color : LEVEL_COLORS[r.unavoidable_level]}">${r.verdict}</div>
+        <div class="verdict ${r.viable ? "" : "is-bad"}">${r.viable ? "" : `<b style="color:${BAD}">Not viable.</b> `}${r.viability}</div>
+        <div class="verdict" style="margin-top:6px;${clear ? "" : `border-color:${LEVEL_COLORS[r.unavoidable_level]}`}">${r.verdict}</div>
         ${card("safest", r.routes.safest, r)}${card("quickest", r.routes.quickest, r)}`;
     }
     draw();
@@ -451,7 +457,7 @@ function addRouting(map, view, { GraphicsLayer, Graphic, Expand, coordinateForma
   // plan([lon, lat], [lon, lat]) sets both points and resolves when the routes are drawn.
   // search("A" or "B", text) types into a search box and submits it. parseLatLon is the coordinate reader.
   return {
-    layer, state, parseLatLon,
+    layer, markers, state, parseLatLon,
     plan: (start, end) => {
       Object.assign(state, { start, end, names: { start: "", end: "" }, picking: null });
       inputs.start.value = position(start);

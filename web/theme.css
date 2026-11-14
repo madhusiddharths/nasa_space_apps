@@ -1,0 +1,331 @@
+/* The look of the whole viewer: a holographic heads-up display over the map.
+   Dark glass panels, thin cyan lines, bright corner brackets, spaced capitals for labels.
+
+   Everything visual lives here: the tokens below, the restyling of the Esri widgets
+   (classes starting with .esri-), and the styles of our own panels (route planner,
+   surface temperature, legends, place buttons). The map itself is not styled here;
+   route lines and markers take their colours from HOLO in routing.js, which mirrors
+   the tokens below. */
+
+:root {
+  --holo-bg: rgba(5, 11, 17, 0.84);            /* panel glass */
+  --holo-bg-solid: #050b11;
+  --holo-raise: rgba(111, 211, 242, 0.08);     /* hover, fields */
+  --holo-raise-strong: rgba(111, 211, 242, 0.18);
+  --holo-line: rgba(111, 211, 242, 0.26);      /* hairlines */
+  --holo-line-strong: rgba(111, 211, 242, 0.6);
+  --holo-cyan: #6fd3f2;                        /* labels, accents */
+  --holo-bright: #e9fbff;                      /* values, headings */
+  --holo-text: #c6e2ee;                        /* body text */
+  --holo-dim: #86b3c6;                         /* hints, secondary text */
+  --holo-amber: #ffb000;                       /* Caution, warnings */
+  --holo-red: #ff5a4a;                         /* Danger, not viable */
+  --holo-magenta: #e86bff;                     /* Extreme */
+  --holo-glow: 0 0 10px rgba(111, 211, 242, 0.45);
+  --holo-font: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --holo-font-caps: "Barlow Condensed", "Barlow", "Segoe UI", system-ui, sans-serif;
+
+  /* A panel surface: glass, a hairline, and a bright bracket in each corner. */
+  --holo-corner: linear-gradient(var(--holo-cyan), var(--holo-cyan));
+  --holo-panel:
+    var(--holo-corner) top left / 12px 1px no-repeat, var(--holo-corner) top left / 1px 12px no-repeat,
+    var(--holo-corner) top right / 12px 1px no-repeat, var(--holo-corner) top right / 1px 12px no-repeat,
+    var(--holo-corner) bottom left / 12px 1px no-repeat, var(--holo-corner) bottom left / 1px 12px no-repeat,
+    var(--holo-corner) bottom right / 12px 1px no-repeat, var(--holo-corner) bottom right / 1px 12px no-repeat,
+    var(--holo-bg);
+
+  /* Esri's own components (Calcite) read these. */
+  --calcite-ui-background: var(--holo-bg-solid);
+  --calcite-ui-foreground-1: var(--holo-bg-solid);
+  --calcite-ui-foreground-2: #0b1a24;
+  --calcite-ui-foreground-3: #10283a;
+  --calcite-ui-text-1: var(--holo-bright);
+  --calcite-ui-text-2: var(--holo-text);
+  --calcite-ui-text-3: var(--holo-dim);
+  --calcite-ui-border-1: var(--holo-line-strong);
+  --calcite-ui-border-2: var(--holo-line);
+  --calcite-ui-border-3: var(--holo-line);
+  --calcite-ui-brand: var(--holo-cyan);
+  --calcite-ui-brand-hover: var(--holo-bright);
+  --calcite-sans-family: var(--holo-font);
+}
+
+html, body, #viewDiv { padding: 0; margin: 0; height: 100%; width: 100%; background: #000; }
+body { font-family: var(--holo-font); color: var(--holo-text); }
+
+/* ---------- Shared pieces ---------- */
+
+.holo-panel, .esri-widget--panel, .esri-widget.esri-widget--panel-height-only,
+.esri-expand__content > .esri-widget, .esri-popup__main-container, .legend,
+.esri-coordinate-conversion, .esri-layer-list, .esri-bookmarks, .esri-elevation-profile, .esri-area-measurement-3d,
+.esri-direct-line-measurement-3d {
+  background: var(--holo-panel);
+  background-origin: border-box;
+  border: 1px solid var(--holo-line);
+  color: var(--holo-text);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.esri-widget, .esri-widget button, .esri-input, .esri-select, .esri-button {
+  font-family: var(--holo-font);
+  font-variant-numeric: tabular-nums;
+}
+.esri-widget { color: var(--holo-text); background-color: transparent; }
+.esri-ui { color: var(--holo-text); }
+.esri-ui .esri-component { box-shadow: none; }
+
+/* Headings and small labels: spaced capitals. */
+.esri-widget__heading, #routePanel h3, #tempPanel h3, .legend b, .holo-caps,
+.esri-popup__header-title, .esri-layer-list__item-title, .esri-bookmarks__bookmark-name {
+  font-family: var(--holo-font-caps);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+.esri-widget__heading, #routePanel h3, #tempPanel h3, .legend b, .esri-popup__header-title {
+  color: var(--holo-bright);
+  text-shadow: var(--holo-glow);
+}
+
+/* Square icon buttons (expand, zoom, compass, navigation). */
+.esri-widget--button, .esri-ui .esri-widget--button {
+  background: var(--holo-bg);
+  color: var(--holo-cyan);
+  border: 1px solid var(--holo-line);
+  box-sizing: border-box;
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+.esri-widget--button:hover, .esri-widget--button:focus-visible {
+  background: var(--holo-raise-strong);
+  color: var(--holo-bright);
+  border-color: var(--holo-line-strong);
+}
+.esri-widget--button.esri-widget--button-active, .esri-widget--button[aria-pressed="true"],
+.esri-navigation-toggle__button--active, .esri-expand__collapse-icon.esri-widget--button {
+  color: var(--holo-bright);
+  border-color: var(--holo-cyan);
+  box-shadow: inset 0 0 0 1px var(--holo-line), var(--holo-glow);
+}
+.esri-zoom, .esri-navigation-toggle, .esri-compass, .esri-expand { background: none; box-shadow: none; }
+.esri-icon-font-fallback-text { color: inherit; }
+
+/* Text buttons, fields, lists. */
+.esri-button, #routePanel button, #tempPanel button {
+  padding: 5px 9px;
+  border: 1px solid var(--holo-line-strong);
+  background: transparent;
+  color: var(--holo-cyan);
+  cursor: pointer;
+  border-radius: 0;
+  font: inherit;
+  font-family: var(--holo-font-caps);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: background 120ms, color 120ms;
+}
+.esri-button:hover, #routePanel button:hover, #tempPanel button:hover { background: var(--holo-raise-strong); color: var(--holo-bright); }
+.esri-button--secondary, .esri-button--tertiary { background: transparent; color: var(--holo-cyan); border-color: var(--holo-line); }
+.esri-button:focus-visible, #routePanel button:focus-visible, #tempPanel button:focus-visible,
+.esri-input:focus, .esri-select:focus, #routePanel input:focus, #routePanel select:focus {
+  outline: 1px solid var(--holo-bright);
+  outline-offset: 1px;
+}
+#routePanel button[aria-pressed=true], #tempPanel button[aria-pressed=true] {
+  background: var(--holo-cyan);
+  color: var(--holo-bg-solid);
+  border-color: var(--holo-cyan);
+  box-shadow: var(--holo-glow);
+}
+
+.esri-input, .esri-select, #routePanel select, #routePanel input[type=text], #routePanel input[type=number] {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--holo-raise);
+  color: var(--holo-bright);
+  border: 1px solid var(--holo-line);
+  border-radius: 0;
+  padding: 4px 6px;
+  font: inherit;
+}
+.esri-select option, #routePanel select option { background: var(--holo-bg-solid); color: var(--holo-bright); }
+.esri-input::placeholder, #routePanel input::placeholder { color: var(--holo-dim); }
+input[type=range], input[type=checkbox], input[type=radio] { accent-color: var(--holo-cyan); }
+
+.esri-menu, .esri-menu__list { background: var(--holo-bg-solid); border: 1px solid var(--holo-line); color: var(--holo-text); }
+.esri-menu__list-item { border-color: var(--holo-line); }
+.esri-menu__list-item:hover, .esri-menu__list-item--focus, .esri-menu__list-item--active { background: var(--holo-raise-strong); color: var(--holo-bright); }
+
+a, .esri-widget__anchor { color: var(--holo-cyan); }
+a:hover, .esri-widget__anchor:hover { color: var(--holo-bright); }
+
+/* Thin scrollbars inside panels. */
+.esri-widget, #routePanel, #tempPanel { scrollbar-width: thin; scrollbar-color: var(--holo-line-strong) transparent; }
+
+/* ---------- Esri widgets, one by one ---------- */
+
+.esri-expand__content { background: none; box-shadow: none; }
+.esri-expand__panel { background: none; }
+
+.esri-coordinate-conversion__conversions-view { margin: 0; }
+.esri-coordinate-conversion__row, .esri-coordinate-conversion__select-row, .esri-coordinate-conversion__display,
+.esri-coordinate-conversion__tools, .esri-coordinate-conversion__conversions-view, .esri-coordinate-conversion__input-group {
+  background: transparent;
+  color: var(--holo-bright);
+  border-color: var(--holo-line);
+}
+.esri-coordinate-conversion .esri-select { color: var(--holo-cyan); font-family: var(--holo-font-caps); letter-spacing: 0.1em; }
+.esri-coordinate-conversion .esri-widget--button { border: none; background: transparent; }
+
+.esri-layer-list__list { padding: 6px; }
+.esri-layer-list__item {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--holo-line);
+  box-shadow: none;
+  color: var(--holo-text);
+  margin: 0;
+}
+.esri-layer-list__item:last-child { border-bottom: none; }
+.esri-layer-list__item-container { padding: 7px 4px; }
+.esri-layer-list__item-title { color: var(--holo-text); letter-spacing: 0.06em; }
+.esri-layer-list__item--invisible-at-scale .esri-layer-list__item-title { color: var(--holo-dim); }
+.esri-layer-list__item-toggle, .esri-layer-list__child-toggle { color: var(--holo-cyan); }
+.esri-layer-list__item-toggle:hover, .esri-layer-list__child-toggle:hover { color: var(--holo-bright); }
+.esri-layer-list__list[hidden] { display: none; }
+
+.esri-bookmarks__bookmark, .esri-bookmarks__bookmark-button { background: transparent; color: var(--holo-text); border-color: var(--holo-line); box-shadow: none; }
+.esri-bookmarks__bookmark:hover, .esri-bookmarks__bookmark-button:hover { background: var(--holo-raise-strong); color: var(--holo-bright); }
+.esri-bookmarks__add-bookmark, .esri-bookmarks__authoring-form { background: transparent; border-color: var(--holo-line); }
+
+.esri-widget__table tr, .esri-widget__table tr:nth-child(odd), .esri-widget__table tr:nth-child(even) { background: transparent; border-bottom: 1px solid var(--holo-line); }
+.esri-widget__table tr th { color: var(--holo-dim); font-weight: 400; border: none; }
+.esri-widget__table tr td { color: var(--holo-bright); }
+
+.esri-popup__header, .esri-popup__footer, .esri-popup__content, .esri-popup__navigation,
+.esri-feature, .esri-feature-content, .esri-popup__feature-menu { background: transparent; color: var(--holo-text); }
+.esri-popup__header { border-bottom: 1px solid var(--holo-line); }
+.esri-popup__button, .esri-popup__header-container--button { color: var(--holo-cyan); }
+.esri-popup__button:hover, .esri-popup__header-container--button:hover { background: var(--holo-raise-strong); color: var(--holo-bright); }
+.esri-popup__pointer-direction { background: var(--holo-bg-solid); }
+.esri-popup--shadow { box-shadow: none; }
+
+.esri-elevation-profile, .esri-area-measurement-3d__container, .esri-direct-line-measurement-3d__container { color: var(--holo-text); }
+.esri-area-measurement-3d__measurement, .esri-area-measurement-3d__settings,
+.esri-direct-line-measurement-3d__measurement, .esri-direct-line-measurement-3d__settings { background: transparent; border-color: var(--holo-line); }
+.esri-area-measurement-3d__measurement-item-title, .esri-direct-line-measurement-3d__measurement-item-title { color: var(--holo-dim); border-color: var(--holo-line); }
+.esri-area-measurement-3d__measurement-item-value, .esri-direct-line-measurement-3d__measurement-item-value { color: var(--holo-bright); }
+.esri-area-measurement-3d__hint, .esri-direct-line-measurement-3d__hint, .esri-elevation-profile__prompt-container { color: var(--holo-dim); }
+
+.esri-attribution { background: rgba(5, 11, 17, 0.6); color: var(--holo-dim); font-family: var(--holo-font); }
+.esri-attribution__link, .esri-attribution__powered-by { color: var(--holo-dim); }
+
+/* ---------- Title, top centre ---------- */
+
+#appTitle {
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 1;
+  pointer-events: none; white-space: nowrap; text-align: center;
+  font-family: var(--holo-font-caps); letter-spacing: 0.32em; text-transform: uppercase;
+  font-size: 13px; color: var(--holo-bright); text-shadow: 0 0 10px rgba(111, 211, 242, 0.7), 0 1px 3px #000;
+}
+#appTitle span { display: block; margin-top: 2px; font-size: 11px; letter-spacing: 0.4em; color: var(--holo-cyan); }
+
+/* ---------- Place buttons, along the bottom ---------- */
+
+#optionsDiv { position: absolute; bottom: 30px; left: 15px; right: 15px; z-index: 1; text-align: center; pointer-events: none; }
+.buttonsContainer { max-width: 860px; margin: 0 auto; }
+.buttonsContainer button {
+  pointer-events: auto;
+  background: var(--holo-bg); padding: 5px 10px; margin: 3px;
+  border: 1px solid var(--holo-line); border-radius: 0;
+  font-family: var(--holo-font-caps); font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--holo-text); cursor: pointer;
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+.buttonsContainer button:hover, .buttonsContainer button:focus-visible {
+  color: var(--holo-bright); border-color: var(--holo-cyan); background: rgba(16, 40, 58, 0.9); box-shadow: var(--holo-glow); outline: none;
+}
+
+/* ---------- Layer legends, stacked top-right ---------- */
+
+.legend { padding: 10px 12px; font-size: 12px; line-height: 1.5; width: 250px; box-sizing: border-box; }
+.legend b { display: inline-block; margin-bottom: 2px; font-size: 13px; }
+.legend i { display: inline-block; width: 12px; height: 12px; margin-right: 6px; vertical-align: -2px; outline: 1px solid rgba(233, 251, 255, 0.25); }
+.legend .ramp { height: 8px; margin: 4px 0 2px; outline: 1px solid var(--holo-line); }
+.legend .ticks { display: flex; justify-content: space-between; font-size: 11px; color: var(--holo-dim); }
+.legend .note { font-size: 11px; color: var(--holo-dim); margin-top: 6px; }
+.legend table { width: 100%; border-collapse: collapse; }
+.legend td { padding: 2px 0; border-bottom: 1px solid var(--holo-line); color: var(--holo-text); }
+.legend tr:last-child td { border-bottom: none; }
+.legend td:last-child { text-align: right; color: var(--holo-bright); }
+
+/* ---------- Route planner panel (web/routing.js) ---------- */
+
+#routePanel { width: 330px; padding: 14px; font-size: 13px; line-height: 1.4; max-height: max(220px, calc(100vh - 380px)); overflow-y: auto; box-sizing: border-box; }
+#routePanel h3 { margin: 0 0 10px; font-size: 16px; }
+#routePanel .row { display: flex; gap: 8px; margin-top: 10px; }
+#routePanel .row > * { flex: 1; min-width: 0; }
+#routePanel .place { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+#routePanel .place b {
+  flex: none; width: 18px; height: 18px; line-height: 18px; text-align: center; font-size: 12px;
+  color: var(--holo-bright); border: 1px solid var(--holo-cyan); transform: rotate(45deg);
+}
+#routePanel .place b span { display: block; transform: rotate(-45deg); }
+#routePanel .place input { flex: 1; min-width: 0; margin-left: 4px; }
+#routePanel .place button { flex: none; font-size: 12px; }
+#routePanel .suggest { margin: 2px 0 0 28px; border: 1px solid var(--holo-line-strong); background: var(--holo-bg-solid); }
+#routePanel .suggest div { padding: 4px 8px; cursor: pointer; color: var(--holo-text); }
+#routePanel .suggest div[aria-selected=true], #routePanel .suggest div:hover { background: var(--holo-raise-strong); color: var(--holo-bright); }
+#routePanel .suggest small { color: var(--holo-dim); margin-left: 6px; }
+#routePanel label.field { display: block; font-family: var(--holo-font-caps); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--holo-cyan); }
+#routePanel label.field input { margin-top: 3px; font-family: var(--holo-font); letter-spacing: 0; }
+#routePanel .points { margin-top: 8px; color: var(--holo-dim); }
+#routePanel .hint { color: var(--holo-dim); }
+#routePanel .verdict { margin-top: 12px; padding: 7px 10px; border-left: 2px solid var(--holo-cyan); background: var(--holo-raise); color: var(--holo-bright); }
+#routePanel .verdict.is-bad { border-color: var(--holo-red); }
+#routePanel .card { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--holo-line-strong); }
+#routePanel .card h4 { margin: 0 0 6px; font-family: var(--holo-font-caps); font-size: 15px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--holo-bright); }
+#routePanel .card h4 label { cursor: pointer; }
+#routePanel .card .total { font-size: 26px; line-height: 1.1; color: var(--holo-bright); text-shadow: var(--holo-glow); letter-spacing: 0.02em; }
+#routePanel .card .total small { font-size: 12px; color: var(--holo-dim); text-shadow: none; margin-left: 6px; }
+#routePanel .split { display: flex; gap: 3px; height: 4px; margin: 8px 0 2px; }
+#routePanel .split i { display: block; height: 4px; min-width: 2px; }
+#routePanel .split i.walk { background: repeating-linear-gradient(90deg, currentColor 0 2px, transparent 2px 5px); }
+#routePanel .meter { height: 3px; margin: 2px 0 4px; background: var(--holo-raise-strong); }
+#routePanel .meter i { display: block; height: 3px; max-width: 100%; background: var(--holo-cyan); }
+#routePanel .meter.is-bad i { background: var(--holo-red); }
+#routePanel .swatch { display: inline-block; width: 18px; height: 3px; vertical-align: middle; margin: 0 6px 0 2px; box-shadow: 0 0 6px currentColor; }
+#routePanel table { width: 100%; border-collapse: collapse; }
+#routePanel td { padding: 3px 0; border-bottom: 1px solid var(--holo-line); color: var(--holo-text); }
+#routePanel tr:last-child td { border-bottom: none; }
+#routePanel td:last-child { text-align: right; color: var(--holo-bright); }
+#routePanel .hazard { margin-top: 6px; padding: 2px 0 2px 8px; border-left: 2px solid; }
+#routePanel .hazard b { font-weight: 500; color: var(--holo-bright); }
+#routePanel .warn { margin-top: 6px; color: var(--holo-amber); }
+#routePanel .bad { margin-top: 6px; color: var(--holo-red); }
+#routePanel .note { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--holo-line); font-size: 11px; color: var(--holo-dim); }
+
+/* ---------- Surface temperature panel (web/temperature.js) ---------- */
+
+#tempPanel { width: 300px; padding: 14px; font-size: 13px; line-height: 1.4; max-height: calc(100vh - 150px); overflow-y: auto; box-sizing: border-box; }
+#tempPanel h3 { margin: 0 0 10px; font-size: 16px; }
+#tempPanel label { display: block; margin-top: 10px; color: var(--holo-text); }
+#tempPanel label span { float: right; color: var(--holo-dim); }
+#tempPanel input[type=range] { width: 100%; margin: 2px 0 0; }
+#tempPanel .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 10px; }
+#tempPanel .modes button { padding: 5px 2px; font-size: 12px; }
+#tempPanel .ramp { height: 8px; margin-top: 12px; outline: 1px solid var(--holo-line); }
+#tempPanel .ticks { display: flex; justify-content: space-between; font-size: 11px; color: var(--holo-dim); }
+#tempPanel .readout { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--holo-line-strong); }
+#tempPanel .readout table { width: 100%; border-collapse: collapse; }
+#tempPanel .readout td { padding: 3px 0; border-bottom: 1px solid var(--holo-line); }
+#tempPanel .readout td:last-child { text-align: right; color: var(--holo-bright); }
+#tempPanel .hint { color: var(--holo-dim); }
+#tempPanel svg { display: block; margin-top: 8px; width: 100%; height: auto; color: var(--holo-cyan); }
+#tempPanel svg text { fill: var(--holo-dim); font-size: 10px; }
+#tempPanel .tip { min-height: 1.4em; font-size: 12px; color: var(--holo-bright); }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
