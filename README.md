@@ -15,6 +15,9 @@ The base layer: the whole planet in 3D, modelled on the
   drawn from our elevation data (interval 2000 m zoomed out to 50 m zoomed in, bold lines labelled in metres)
 - Ground firmness: thermal inertia at 3 km per pixel, coloured in six classes from loose dust
   (may not bear weight) to bedrock, with a legend
+- Surface temperature for any season and time of day: a panel with season and local-time
+  sliders, daily low / daily high / day-night swing, and a click readout with the 24-hour
+  curve of that spot. Needs no download; 100 m detail where a THEMIS tile is downloaded
 - Rover traverses (Curiosity, Perseverance), IAU feature names, impact craters
 - Coordinate readout, area measurement, elevation profile, layer list, bookmarks
 - Python helpers to read elevation and compute slope for any area
@@ -48,10 +51,14 @@ Open http://localhost:8000.
 |---|---|
 | `web/index.html` | The 3D viewer (ArcGIS Maps SDK for JS) |
 | `web/data/` | Small vector layers shipped with the repo |
-| `server.py` | Serves the viewer and the terrain, contour and firmness tiles from local data |
+| `server.py` | Serves the viewer and the terrain, contour, firmness and temperature tiles from local data |
 | `elevation.py` | Reads elevation for a lon/lat box, computes slope, cuts terrain tiles |
 | `contours.py` | Draws contour-line map tiles from the elevation file |
 | `firmness.py` | Reads thermal inertia for a lon/lat box, classifies ground firmness, draws its map tiles |
+| `temperature.py` | Surface temperature for a lon/lat box, season and time of day; draws its map tiles |
+| `temperature_data/` | Small maps and the lookup table `temperature.py` reads (in git, 16 MB) |
+| `web/temperature.js` | The temperature panel and click readout in the viewer |
+| `scripts/` | Rebuild `temperature_data/`, and check the temperature model against Curiosity |
 | `data/` | Large downloaded datasets (gitignored) |
 | `DATA_SOURCES.md` | Every dataset, download links, GIS conventions |
 
@@ -85,6 +92,23 @@ soft = firmness.firmness_class(ti) == 0                   # loose dust, may not 
 
 Thermal inertia senses only the top few centimetres, averaged over 3 km, and is unreliable
 poleward of about 60° (ice and seasonal frost).
+
+**Surface temperature on the same grid:**
+
+```python
+import temperature
+
+# Ls = season angle (90 = northern summer), local_time = local solar hour. Kelvin, no NaN.
+t = temperature.read_temperature(*box, ls=90, local_time=14, shape=z.shape)
+coldest = temperature.read_temperature(*box, ls=90, stat="min", shape=z.shape)   # also "max", "mean", "range"
+spot = temperature.diurnal_cycle(137.44, -4.59, ls=90)    # 24 hourly values plus ground properties
+```
+
+It comes from a thermal model of the ground driven by THEMIS thermal inertia and TES albedo.
+Checked against Curiosity's ground temperature sensor in Gale crater
+(`scripts/validate_temperature.py`): nightly lows agree within about 3 K, afternoon highs
+come out about 11 K too cold. It ignores slopes, shadows and dust storms, and poleward of
+60° it assumes a typical ground (THEMIS thermal inertia stops there).
 
 To combine layers for routing, put each one on the same lon/lat box and array shape.
 

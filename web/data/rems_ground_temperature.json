@@ -1,0 +1,226 @@
+{
+ "description": "Curiosity REMS daily minimum and maximum ground and air temperature in Gale crater, median per 15 degrees of solar longitude (kelvin).",
+ "source": "NASA/JPL-Caltech/CAB (CSIC-INTA), https://mars.nasa.gov/rss/api/?feed=weather&category=msl&feedtype=json",
+ "sol_range": [
+  1,
+  4995
+ ],
+ "bins": [
+  {
+   "ls_from": 0,
+   "ls_to": 15,
+   "sols": 199,
+   "ground_min": 191.1,
+   "ground_max": 274.1,
+   "air_min": 198.1,
+   "air_max": 259.1
+  },
+  {
+   "ls_from": 15,
+   "ls_to": 30,
+   "sols": 204,
+   "ground_min": 190.1,
+   "ground_max": 273.1,
+   "air_min": 196.1,
+   "air_max": 255.1
+  },
+  {
+   "ls_from": 30,
+   "ls_to": 45,
+   "sols": 224,
+   "ground_min": 187.6,
+   "ground_max": 268.6,
+   "air_min": 195.1,
+   "air_max": 251.1
+  },
+  {
+   "ls_from": 45,
+   "ls_to": 60,
+   "sols": 204,
+   "ground_min": 187.1,
+   "ground_max": 265.1,
+   "air_min": 194.1,
+   "air_max": 249.1
+  },
+  {
+   "ls_from": 60,
+   "ls_to": 75,
+   "sols": 225,
+   "ground_min": 185.1,
+   "ground_max": 264.1,
+   "air_min": 193.1,
+   "air_max": 245.1
+  },
+  {
+   "ls_from": 75,
+   "ls_to": 90,
+   "sols": 233,
+   "ground_min": 185.1,
+   "ground_max": 264.1,
+   "air_min": 192.1,
+   "air_max": 245.1
+  },
+  {
+   "ls_from": 90,
+   "ls_to": 105,
+   "sols": 228,
+   "ground_min": 185.1,
+   "ground_max": 264.1,
+   "air_min": 193.1,
+   "air_max": 247.1
+  },
+  {
+   "ls_from": 105,
+   "ls_to": 120,
+   "sols": 213,
+   "ground_min": 187.1,
+   "ground_max": 266.1,
+   "air_min": 194.1,
+   "air_max": 250.1
+  },
+  {
+   "ls_from": 120,
+   "ls_to": 135,
+   "sols": 209,
+   "ground_min": 189.1,
+   "ground_max": 271.1,
+   "air_min": 195.1,
+   "air_max": 256.1
+  },
+  {
+   "ls_from": 135,
+   "ls_to": 150,
+   "sols": 179,
+   "ground_min": 192.1,
+   "ground_max": 275.1,
+   "air_min": 196.1,
+   "air_max": 261.1
+  },
+  {
+   "ls_from": 150,
+   "ls_to": 165,
+   "sols": 199,
+   "ground_min": 193.1,
+   "ground_max": 281.1,
+   "air_min": 199.1,
+   "air_max": 265.1
+  },
+  {
+   "ls_from": 165,
+   "ls_to": 180,
+   "sols": 206,
+   "ground_min": 194.1,
+   "ground_max": 282.1,
+   "air_min": 200.1,
+   "air_max": 269.1
+  },
+  {
+   "ls_from": 180,
+   "ls_to": 195,
+   "sols": 191,
+   "ground_min": 195.1,
+   "ground_max": 286.1,
+   "air_min": 201.1,
+   "air_max": 272.1
+  },
+  {
+   "ls_from": 195,
+   "ls_to": 210,
+   "sols": 189,
+   "ground_min": 198.1,
+   "ground_max": 287.1,
+   "air_min": 203.1,
+   "air_max": 273.1
+  },
+  {
+   "ls_from": 210,
+   "ls_to": 225,
+   "sols": 191,
+   "ground_min": 199.1,
+   "ground_max": 286.1,
+   "air_min": 205.1,
+   "air_max": 274.1
+  },
+  {
+   "ls_from": 225,
+   "ls_to": 240,
+   "sols": 182,
+   "ground_min": 201.1,
+   "ground_max": 283.1,
+   "air_min": 206.1,
+   "air_max": 272.1
+  },
+  {
+   "ls_from": 240,
+   "ls_to": 255,
+   "sols": 173,
+   "ground_min": 200.1,
+   "ground_max": 281.1,
+   "air_min": 205.1,
+   "air_max": 271.1
+  },
+  {
+   "ls_from": 255,
+   "ls_to": 270,
+   "sols": 157,
+   "ground_min": 198.1,
+   "ground_max": 282.1,
+   "air_min": 204.1,
+   "air_max": 271.1
+  },
+  {
+   "ls_from": 270,
+   "ls_to": 285,
+   "sols": 158,
+   "ground_min": 195.1,
+   "ground_max": 284.1,
+   "air_min": 202.1,
+   "air_max": 271.1
+  },
+  {
+   "ls_from": 285,
+   "ls_to": 300,
+   "sols": 184,
+   "ground_min": 197.1,
+   "ground_max": 284.1,
+   "air_min": 203.1,
+   "air_max": 271.1
+  },
+  {
+   "ls_from": 300,
+   "ls_to": 315,
+   "sols": 187,
+   "ground_min": 196.1,
+   "ground_max": 283.1,
+   "air_min": 202.1,
+   "air_max": 269.1
+  },
+  {
+   "ls_from": 315,
+   "ls_to": 330,
+   "sols": 199,
+   "ground_min": 196.1,
+   "ground_max": 280.1,
+   "air_min": 202.1,
+   "air_max": 266.1
+  },
+  {
+   "ls_from": 330,
+   "ls_to": 345,
+   "sols": 201,
+   "ground_min": 193.1,
+   "ground_max": 281.1,
+   "air_min": 201.1,
+   "air_max": 266.1
+  },
+  {
+   "ls_from": 345,
+   "ls_to": 360,
+   "sols": 181,
+   "ground_min": 192.1,
+   "ground_max": 278.1,
+   "air_min": 199.1,
+   "air_max": 262.1
+  }
+ ]
+}
