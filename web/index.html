@@ -6,6 +6,7 @@
   <title>Interplanetary Survival Guide: Mars</title>
   <link rel="stylesheet" href="https://js.arcgis.com/4.26/esri/themes/dark/main.css" />
   <script src="https://js.arcgis.com/4.26/"></script>
+  <script src="temperature.js"></script>
   <style>
     html, body, #viewDiv { padding: 0; margin: 0; height: 100%; width: 100%; background: #000; }
     .esri-coordinate-conversion__conversions-view { margin: 0; }
@@ -287,6 +288,9 @@
       // ---- New layers go here: build with serverTiles() or GeoJSONLayer and add to this list.
       // They appear in the layer list automatically. ----
       map.addMany([firmnessLayer, iceLayer, contourLayer, radiationGroup]);
+
+      // Surface temperature for any season and time of day, with its own panel (web/temperature.js).
+      window.marsTemperature = addTemperatureLayer(map, view, { BaseTileLayer, Expand, tileInfo: marsTileInfo(9), fullExtent: MARS_EXTENT });
 
       // ---- Widgets ----
       view.ui.move(["navigation-toggle", "compass", "zoom"], "top-right");
