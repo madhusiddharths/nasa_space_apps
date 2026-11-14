@@ -1,4 +1,4 @@
-"""Serves the viewer (web/) plus terrain, contour-line and ground-firmness tiles from local data.
+"""Serves the viewer (web/) plus terrain, contour-line, ground-firmness and water-ice tiles from local data.
 
 Run:  .venv/bin/uvicorn server:app --port 8000
 """
@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 import contours
 import elevation
 import firmness
+import ice
 
 app = FastAPI()
 
@@ -30,6 +31,16 @@ def firmness_tile(level: int, row: int, col: int):
 @app.get("/firmness/legend")
 def firmness_legend():
     return firmness.legend()
+
+
+@app.get("/ice/{level}/{row}/{col}.png")
+def ice_tile(level: int, row: int, col: int):
+    return Response(ice.tile_png(level, row, col), media_type="image/png")
+
+
+@app.get("/ice/legend")
+def ice_legend():
+    return ice.legend()
 
 
 app.mount("/", StaticFiles(directory="web", html=True))

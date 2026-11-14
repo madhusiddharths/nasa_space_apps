@@ -78,6 +78,9 @@
         container: "viewDiv",
         qualityProfile: "high",
         spatialReference: { wkid: MARS_WKID },
+        // Even light from the camera, so layer colours read the same everywhere
+        // (the default sun lighting leaves the poles and the night side dark).
+        environment: { lighting: { type: "virtual" } },
         camera: {
           position: { x: -75, y: -24, z: 1281525.766, spatialReference: MARS_WKID },
           heading: 0,
@@ -196,6 +199,22 @@
       });
       map.add(firmnessLayer);
 
+      // Water ice: depth to the shallowest ice (white = on the surface, darker blue =
+      // deeper), from SWIM and the USGS polar ice units, drawn by server.py.
+      const IceLayer = BaseTileLayer.createSubclass({
+        getTileUrl: (level, row, col) => `/ice/${level}/${row}/${col}.png`,
+      });
+      const iceLayer = new IceLayer({
+        title: "Water Ice (depth to ice)",
+        copyright: "Ice: SWIM (Morgan & Putzig et al. 2025), USGS SIM 3292",
+        spatialReference: { wkid: MARS_WKID },
+        fullExtent: MARS_EXTENT,
+        tileInfo: marsTileInfo(8),
+        opacity: 0.7,
+        visible: false,
+      });
+      map.add(iceLayer);
+
       // Contour lines drawn by server.py from the local elevation file. The interval
       // tightens with zoom (2000 m down to 50 m); bold lines carry their elevation.
       const ContourLayer = BaseTileLayer.createSubclass({
@@ -236,6 +255,18 @@
       fetch("/firmness/legend").then((r) => r.json()).then((classes) => {
         firmnessLegend.innerHTML = "<b>Ground firmness</b><br>Thermal inertia, 3 km resolution<br>" +
           classes.map((c) => `<i style="background:${c.color}"></i>${c.label} (${c.range})`).join("<br>");
+      });
+
+      // Water-ice legend, shown only while the layer is on. Classes come from ice.py.
+      const iceLegend = document.createElement("div");
+      iceLegend.className = "legend";
+      iceLegend.hidden = true;
+      iceLayer.watch("visible", (visible) => { iceLegend.hidden = !visible; });
+      view.ui.add(iceLegend, "top-right");
+      fetch("/ice/legend").then((r) => r.json()).then((classes) => {
+        iceLegend.innerHTML = "<b>Water ice</b><br>Depth to the shallowest ice, 3 km resolution<br>" +
+          classes.map((c) => `<i style="background:${c.color}"></i>${c.label}`).join("<br>") +
+          "<br>No colour: no ice found, or not mapped (60° to the polar ice)";
       });
 
       // ---- Bookmark buttons: [label, lon, lat, altitude m, heading, tilt] ----
