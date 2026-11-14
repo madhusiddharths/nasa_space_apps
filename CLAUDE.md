@@ -6,5 +6,7 @@
 - All styling goes in `web/theme.css`, using the `--holo-*` tokens. No `<style>` blocks in
   JavaScript or HTML, no hard-coded colours.
 - Design for desktop only. Do not add phone or tablet layouts.
+- The page layout is fixed: a rail of modes, one docked panel, the map, a status strip
+  (`web/layout.js`). New controls go in the dock, not in floating widgets over the map.
 - The frontend has no build step: plain files in `web/`, served by `server.py`.
 - What the project is and how to run it: `README.md`. Where the data comes from: `DATA_SOURCES.md`.

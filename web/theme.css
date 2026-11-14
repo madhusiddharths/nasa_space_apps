@@ -50,7 +50,7 @@
   --calcite-sans-family: var(--holo-font);
 }
 
-html, body, #viewDiv { padding: 0; margin: 0; height: 100%; width: 100%; background: #000; }
+html, body { padding: 0; margin: 0; height: 100%; width: 100%; background: #000; overflow: hidden; }
 body { font-family: var(--holo-font); color: var(--holo-text); }
 
 /* ---------- Shared pieces ---------- */
@@ -221,33 +221,75 @@ a:hover, .esri-widget__anchor:hover { color: var(--holo-bright); }
 .esri-attribution { background: rgba(5, 11, 17, 0.6); color: var(--holo-dim); font-family: var(--holo-font); }
 .esri-attribution__link, .esri-attribution__powered-by { color: var(--holo-dim); }
 
-/* ---------- Title, top centre ---------- */
+/* ---------- Layout (web/layout.js): rail | dock | map, with a status strip underneath ---------- */
 
-#appTitle {
-  position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 1;
-  pointer-events: none; white-space: nowrap; text-align: center;
-  font-family: var(--holo-font-caps); letter-spacing: 0.32em; text-transform: uppercase;
-  font-size: 13px; color: var(--holo-bright); text-shadow: 0 0 10px rgba(111, 211, 242, 0.7), 0 1px 3px #000;
+body { display: grid; grid-template-columns: 60px auto minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 28px; }
+#rail { grid-column: 1; grid-row: 1; }
+#dock { grid-column: 2; grid-row: 1; }
+#viewDiv { grid-column: 3; grid-row: 1; min-width: 0; min-height: 0; padding: 0; margin: 0; }
+#statusBar { grid-column: 1 / -1; grid-row: 2; }
+
+/* The rail: one button per mode. The open mode is lit; clicking it again closes the dock. */
+#rail { display: flex; flex-direction: column; align-items: stretch; background: var(--holo-bg-solid); border-right: 1px solid var(--holo-line); }
+#rail .mark { height: 54px; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid var(--holo-line); }
+#rail .mark span {
+  width: 20px; height: 20px; line-height: 20px; text-align: center; transform: rotate(45deg);
+  border: 1px solid var(--holo-cyan); color: var(--holo-bright); box-shadow: var(--holo-glow);
+  font-family: var(--holo-font-caps); font-size: 13px;
 }
-#appTitle span { display: block; margin-top: 2px; font-size: 11px; letter-spacing: 0.4em; color: var(--holo-cyan); }
+#rail button {
+  display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 12px 0 10px;
+  background: none; border: none; border-left: 2px solid transparent; cursor: pointer;
+  color: var(--holo-dim); font-family: var(--holo-font-caps); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+  transition: color 120ms, background 120ms;
+}
+#rail button span { font-size: 18px; }
+#rail button:hover, #rail button:focus-visible { color: var(--holo-bright); background: var(--holo-raise); outline: none; }
+#rail button[aria-pressed=true] { color: var(--holo-bright); border-left-color: var(--holo-cyan); background: var(--holo-raise-strong); text-shadow: var(--holo-glow); }
 
-/* ---------- Place buttons, along the bottom ---------- */
-
-#optionsDiv { position: absolute; bottom: 30px; left: 15px; right: 15px; z-index: 1; text-align: center; pointer-events: none; }
-.buttonsContainer { max-width: 860px; margin: 0 auto; }
-.buttonsContainer button {
-  pointer-events: auto;
-  background: var(--holo-bg); padding: 5px 10px; margin: 3px;
-  border: 1px solid var(--holo-line); border-radius: 0;
-  font-family: var(--holo-font-caps); font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase;
-  color: var(--holo-text); cursor: pointer;
+/* The dock: the open mode's panel, full height. Content inside is flat; the dock is the surface. */
+#dock { width: 372px; box-sizing: border-box; overflow-y: auto; background: var(--holo-bg-solid); border-right: 1px solid var(--holo-line-strong); scrollbar-width: thin; scrollbar-color: var(--holo-line-strong) transparent; }
+#dock[hidden] { display: none; }
+#dock section[hidden] { display: none; }
+#dock .esri-widget, #dock .esri-widget--panel, #dock .esri-layer-list, #dock .esri-bookmarks, #dock .esri-coordinate-conversion,
+#dock .esri-elevation-profile, #dock .esri-area-measurement-3d {
+  background: none; border: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none;
+  width: auto; max-width: none; max-height: none; overflow: visible;
+}
+#dock .slot { padding: 14px 14px 6px; border-bottom: 1px solid var(--holo-line); }
+#dock .slot:last-child { border-bottom: none; }
+#dock .slot > h3 {
+  margin: 0 0 10px; font-family: var(--holo-font-caps); font-size: 16px; font-weight: 500; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--holo-bright); text-shadow: var(--holo-glow);
+}
+#dock .slot .hint { margin: 6px 0 8px; min-height: 1.4em; font-size: 12px; color: var(--holo-dim); }
+#dock .esri-layer-list__list { padding: 0; }
+#dock .esri-widget__content--empty { background: var(--holo-raise); color: var(--holo-dim); }
+#dock .place-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding-bottom: 10px; }
+#dock .place-list button {
+  padding: 7px 8px; text-align: left; background: none; border: 1px solid var(--holo-line); cursor: pointer;
+  color: var(--holo-text); font-family: var(--holo-font-caps); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase;
   transition: background 120ms, color 120ms, border-color 120ms;
 }
-.buttonsContainer button:hover, .buttonsContainer button:focus-visible {
-  color: var(--holo-bright); border-color: var(--holo-cyan); background: rgba(16, 40, 58, 0.9); box-shadow: var(--holo-glow); outline: none;
+#dock .place-list button:hover, #dock .place-list button:focus-visible {
+  color: var(--holo-bright); border-color: var(--holo-cyan); background: var(--holo-raise-strong); outline: none;
 }
 
-/* ---------- Layer legends, stacked top-right ---------- */
+/* The status strip: label in cyan capitals, value in bright figures. */
+#statusBar {
+  display: flex; align-items: center; gap: 22px; padding: 0 14px; overflow: hidden; white-space: nowrap;
+  background: var(--holo-bg-solid); border-top: 1px solid var(--holo-line-strong);
+  font-size: 12px; font-variant-numeric: tabular-nums; color: var(--holo-bright);
+}
+#statusBar .label { margin-right: 7px; font-family: var(--holo-font-caps); letter-spacing: 0.12em; text-transform: uppercase; color: var(--holo-cyan); }
+#statusBar [data-key] { display: inline-block; white-space: pre; }
+#statusBar [data-key=position] { min-width: 150px; }
+#statusBar [data-key=elevation] { min-width: 62px; }
+#statusBar [data-key=height] { min-width: 58px; }
+#statusBar .brand { margin-left: auto; font-family: var(--holo-font-caps); letter-spacing: 0.28em; text-transform: uppercase; color: var(--holo-dim); }
+#statusBar .brand b { margin-left: 10px; font-weight: 500; color: var(--holo-cyan); }
+
+/* ---------- Layer legends, stacked top-right on the map ---------- */
 
 .legend { padding: 10px 12px; font-size: 12px; line-height: 1.5; width: 250px; box-sizing: border-box; }
 .legend b { display: inline-block; margin-bottom: 2px; font-size: 13px; }
@@ -262,7 +304,7 @@ a:hover, .esri-widget__anchor:hover { color: var(--holo-bright); }
 
 /* ---------- Route planner panel (web/routing.js) ---------- */
 
-#routePanel { width: 330px; padding: 14px; font-size: 13px; line-height: 1.4; max-height: max(220px, calc(100vh - 380px)); overflow-y: auto; box-sizing: border-box; }
+#routePanel { padding: 14px; font-size: 13px; line-height: 1.4; box-sizing: border-box; }
 #routePanel h3 { margin: 0 0 10px; font-size: 16px; }
 #routePanel .row { display: flex; gap: 8px; margin-top: 10px; }
 #routePanel .row > * { flex: 1; min-width: 0; }
@@ -308,7 +350,7 @@ a:hover, .esri-widget__anchor:hover { color: var(--holo-bright); }
 
 /* ---------- Surface temperature panel (web/temperature.js) ---------- */
 
-#tempPanel { width: 300px; padding: 14px; font-size: 13px; line-height: 1.4; max-height: calc(100vh - 150px); overflow-y: auto; box-sizing: border-box; }
+#tempPanel { padding: 14px; font-size: 13px; line-height: 1.4; box-sizing: border-box; }
 #tempPanel h3 { margin: 0 0 10px; font-size: 16px; }
 #tempPanel label { display: block; margin-top: 10px; color: var(--holo-text); }
 #tempPanel label span { float: right; color: var(--holo-dim); }
