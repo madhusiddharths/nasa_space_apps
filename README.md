@@ -11,7 +11,9 @@ The base layer: the whole planet in 3D, modelled on the
 
 - Global CTX imagery at 5 m per pixel, draped over 200 m terrain
 - Terrain read from our own copy of the NASA/USGS elevation data
-- Rover traverses (Curiosity, Perseverance), IAU feature names, impact craters, colored topography
+- Two topography layers that can be shown together: colored elevation, and contour lines
+  drawn from our elevation data (interval 2000 m zoomed out to 50 m zoomed in, bold lines labelled in metres)
+- Rover traverses (Curiosity, Perseverance), IAU feature names, impact craters
 - Coordinate readout, area measurement, elevation profile, layer list, bookmarks
 - Python helpers to read elevation and compute slope for any area
 
@@ -43,8 +45,9 @@ Open http://localhost:8000.
 |---|---|
 | `web/index.html` | The 3D viewer (ArcGIS Maps SDK for JS) |
 | `web/data/` | Small vector layers shipped with the repo |
-| `server.py` | Serves the viewer and terrain tiles from the local elevation file |
+| `server.py` | Serves the viewer, terrain tiles and contour tiles from the local elevation file |
 | `elevation.py` | Reads elevation for a lon/lat box, computes slope, cuts terrain tiles |
+| `contours.py` | Draws contour-line map tiles from the elevation file |
 | `data/` | Large downloaded datasets (gitignored) |
 | `DATA_SOURCES.md` | Every dataset, download links, GIS conventions |
 

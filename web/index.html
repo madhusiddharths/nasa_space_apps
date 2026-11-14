@@ -31,16 +31,29 @@
 
     require([
       "esri/Map", "esri/Camera", "esri/views/SceneView",
-      "esri/layers/BaseElevationLayer", "esri/layers/support/TileInfo",
+      "esri/layers/BaseElevationLayer", "esri/layers/BaseTileLayer", "esri/layers/support/TileInfo",
       "esri/layers/TileLayer", "esri/layers/FeatureLayer",
       "esri/layers/GeoJSONLayer", "esri/layers/GroupLayer",
       "esri/widgets/CoordinateConversion", "esri/widgets/LayerList", "esri/widgets/AreaMeasurement3D",
       "esri/widgets/Bookmarks", "esri/widgets/ElevationProfile", "esri/widgets/Expand",
-    ], (Map, Camera, SceneView, BaseElevationLayer, TileInfo, TileLayer, FeatureLayer, GeoJSONLayer, GroupLayer,
+    ], (Map, Camera, SceneView, BaseElevationLayer, BaseTileLayer, TileInfo, TileLayer, FeatureLayer, GeoJSONLayer, GroupLayer,
         CoordinateConversion, LayerList, AreaMeasurement3D, Bookmarks, ElevationProfile, Expand) => {
 
+      // Tiling scheme of the CTX imagery, for layers served by server.py.
+      const MARS_EXTENT = { xmin: -180, ymin: -90, xmax: 180, ymax: 90, spatialReference: { wkid: MARS_WKID } };
+      const marsTileInfo = (levels) => new TileInfo({
+        size: [512, 512],
+        origin: { x: -180, y: 90, spatialReference: { wkid: MARS_WKID } },
+        spatialReference: { wkid: MARS_WKID },
+        lods: Array.from({ length: levels }, (_, level) => ({
+          level,
+          resolution: 0.3515625 / 2 ** level,
+          scale: 78760513.4003741 / 2 ** level,
+        })),
+      });
+
       // ---- Terrain: HRSC + MOLA blended DEM, 200 m/px, read from the local file
-      // by server.py. Tiling scheme matches the CTX imagery (levels 0-7). ----
+      // by server.py (levels 0-7). ----
       const LocalElevationLayer = BaseElevationLayer.createSubclass({
         fetchTile(level, row, col, options) {
           return fetch(`/elevation/${level}/${row}/${col}`, { signal: options && options.signal })
@@ -51,17 +64,8 @@
       const marsElevation = new LocalElevationLayer({
         copyright: "Topography: NASA GSFC, DLR, USGS Astrogeology, JPL",
         spatialReference: { wkid: MARS_WKID },
-        fullExtent: { xmin: -180, ymin: -90, xmax: 180, ymax: 90, spatialReference: { wkid: MARS_WKID } },
-        tileInfo: new TileInfo({
-          size: [512, 512],
-          origin: { x: -180, y: 90, spatialReference: { wkid: MARS_WKID } },
-          spatialReference: { wkid: MARS_WKID },
-          lods: Array.from({ length: 8 }, (_, level) => ({
-            level,
-            resolution: 0.3515625 / 2 ** level,
-            scale: 78760513.4003741 / 2 ** level,
-          })),
-        }),
+        fullExtent: MARS_EXTENT,
+        tileInfo: marsTileInfo(8),
       });
 
       const map = new Map({ ground: { layers: [marsElevation] }, layers: [] });
@@ -170,6 +174,20 @@
         url: "https://astro.arcgis.com/arcgis/rest/services/OnMars/MColorDEM/MapServer",
         copyright: "USGS Astrogeology Science Center, NASA, JPL, ESA, DLR, Esri",
         title: "MOLA Topography (NASA/JPL/GSFC)",
+        visible: false,
+      }));
+
+      // Contour lines drawn by server.py from the local elevation file. The interval
+      // tightens with zoom (2000 m down to 50 m); bold lines carry their elevation.
+      const ContourLayer = BaseTileLayer.createSubclass({
+        getTileUrl: (level, row, col) => `/contours/${level}/${row}/${col}.png`,
+      });
+      map.add(new ContourLayer({
+        title: "Contour Lines (elevation in m)",
+        copyright: "Contours: derived from HRSC+MOLA DEM",
+        spatialReference: { wkid: MARS_WKID },
+        fullExtent: MARS_EXTENT,
+        tileInfo: marsTileInfo(13),
         visible: false,
       }));
 

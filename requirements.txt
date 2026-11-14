@@ -2,3 +2,4 @@ fastapi
 uvicorn
 rasterio
 numpy
+pillow
