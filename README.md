@@ -1,23 +1,33 @@
-# nasa_space_apps
+# Interplanetary Survival Guide: an interactive map of Mars
 
-Interactive 3D map of Mars for route planning. This is the base layer: the Murray Lab
-CTX viewer (https://murray-lab.caltech.edu/CTX/V01/SceneView/) rebuilt locally, with the
-3D terrain read from our own copy of the elevation data.
+NASA Space Apps Challenge project. A 3D, Google-Earth-style map of Mars with data layers
+(elevation, slope, radiation, temperature and more), built to answer one question:
+what is the safest route across the surface for astronauts and rovers?
+
+## What works today
+
+The base layer: the whole planet in 3D, modelled on the
+[Murray Lab CTX viewer](https://murray-lab.caltech.edu/CTX/V01/SceneView/).
+
+- Global CTX imagery at 5 m per pixel, draped over 200 m terrain
+- Terrain read from our own copy of the NASA/USGS elevation data
+- Rover traverses (Curiosity, Perseverance), IAU feature names, impact craters, colored topography
+- Coordinate readout, area measurement, elevation profile, layer list, bookmarks
+- Python helpers to read elevation and compute slope for any area
+
+Planned: hazard layers on top of the base, then least-cost route finding across them.
 
 ## Setup
 
 ```bash
 python3 -m venv .venv
+```
+
+```bash
 .venv/bin/pip install -r requirements.txt
 ```
 
-Download the elevation data (not in git) into `data/elevation/`: the 11 GB file and its
-3.8 GB `.ovr` sidecar, which holds the low-resolution overviews. Without the sidecar,
-zoomed-out reads take seconds instead of milliseconds.
-
-```bash
-mkdir -p data/elevation && cd data/elevation && curl -L -C - -O https://planetarymaps.usgs.gov/mosaic/Mars/HRSC_MOLA_Blend/Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif -O https://planetarymaps.usgs.gov/mosaic/Mars/HRSC_MOLA_Blend/Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif.ovr
-```
+Then download the elevation data (15 GB, not in git): see [DATA_SOURCES.md](DATA_SOURCES.md).
 
 ## Run
 
@@ -27,34 +37,23 @@ mkdir -p data/elevation && cd data/elevation && curl -L -C - -O https://planetar
 
 Open http://localhost:8000.
 
-## Where the data comes from
+## Project layout
 
-| Layer | Source | Local? |
-|---|---|---|
-| 3D terrain, HRSC+MOLA 200 m | `data/elevation/*.tif`, served by `server.py` at `/elevation/{level}/{row}/{col}` | yes |
-| CTX mosaic, 5 m/px | `astro.arcgis.com/arcgis/rest/services/OnMars/CTX1/MapServer` | streamed |
-| MOLA colored topography | `astro.arcgis.com/arcgis/rest/services/OnMars/MColorDEM/MapServer` | streamed |
-| Impact craters | Esri `Mars_Nomenclature_Mountains` FeatureServer | streamed |
-| CTX tile map (3,960 quads, links to downloads) | `web/data/MurrayLab_CTX_V01_Quad-Map.geojson` | yes |
-| Curiosity traverse (to sol 3420) | `web/data/MSL_3420.geojson` | yes |
-| Perseverance traverse (to sol 678) | `web/data/Mars2020_0678.geojson` | yes |
-| IAU feature names | `web/data/mars-nomenclature.geojson` | yes |
+| Path | Role |
+|---|---|
+| `web/index.html` | The 3D viewer (ArcGIS Maps SDK for JS) |
+| `web/data/` | Small vector layers shipped with the repo |
+| `server.py` | Serves the viewer and terrain tiles from the local elevation file |
+| `elevation.py` | Reads elevation for a lon/lat box, computes slope, cuts terrain tiles |
+| `data/` | Large downloaded datasets (gitignored) |
+| `DATA_SOURCES.md` | Every dataset, download links, GIS conventions |
 
-The CTX imagery is streamed because the full mosaic is 5.6 TB.
-Credit: NASA/JPL/MSSS/The Murray Lab; topography NASA GSFC, DLR, USGS Astrogeology, JPL.
+## Building on the base layer
 
-## GIS reference (every layer must match this)
+All layers use plain lon/lat degrees on the Mars 2000 sphere (wkid 104971); details are in
+[DATA_SOURCES.md](DATA_SOURCES.md).
 
-- **Coordinate system:** `GCS_Mars_2000_Sphere`, Esri wkid **104971**. Plain lon/lat in degrees.
-- **Longitude:** -180 to 180, east positive. Convert 0–360°E data with `lon > 180 ? lon - 360 : lon`.
-- **Latitude:** -90 to 90, planetocentric.
-- **Sphere radius:** 3,396,190 m. 1° of latitude = 59,274.7 m. 1° of longitude = 59,274.7 × cos(lat) m.
-- **Elevation file:** 106,694 × 53,347 px, 0.003374120830641°/px (200 m at the equator),
-  int16 metres above the MOLA areoid, range -8,528 to 21,226, nodata -32768. Row 0 is north.
-
-## Using elevation in Python
-
-`elevation.py` reads any lon/lat box from the file and computes slope with true ground distances:
+**Elevation and slope in Python:**
 
 ```python
 import elevation
@@ -64,40 +63,20 @@ box = (136.5, -6.0, 139.0, -4.0)
 z = elevation.read_elevation(*box)                 # float32 metres, NaN = nodata
 slope = elevation.slope_degrees(z, south=box[1], north=box[3], west=box[0], east=box[2])
 
-# Whole planet on a coarse grid (fast, uses the file's overviews)
+# Whole planet on a coarse grid
 world = elevation.read_elevation(-180, -90, 180, 90, shape=(2880, 5760))
 ```
 
 To combine layers for routing, put each one on the same lon/lat box and array shape.
 
-## Adding a layer to the viewer
-
-Add it in `web/index.html` where the comment says "Team layers go here". It appears in the
-layer list automatically.
-
-**Vector data (points, lines, polygons):** save as GeoJSON with lon/lat in degrees, put it in `web/data/`:
+**Adding a layer to the viewer:** add it in `web/index.html` where the comment says
+"Team layers go here". It appears in the layer list automatically. For vector data, save
+GeoJSON with lon/lat in degrees into `web/data/`:
 
 ```js
 map.add(new GeoJSONLayer({ url: "data/my-layer.geojson", title: "My layer" }));
 ```
 
-**Raster data (radiation, temperature, slope...):** simplest is one global PNG in
-equirectangular projection covering -180..180, -90..90. Load `esri/layers/MediaLayer`,
-`esri/layers/support/ImageElement` and `esri/layers/support/ExtentAndRotationGeoreference`
-(this snippet is untested):
+## Credits
 
-```js
-map.add(new MediaLayer({
-  title: "Radiation",
-  opacity: 0.6,
-  spatialReference: { wkid: 104971 },
-  source: [new ImageElement({
-    image: "data/radiation.png",
-    georeference: new ExtentAndRotationGeoreference({
-      extent: { xmin: -180, ymin: -90, xmax: 180, ymax: 90, spatialReference: { wkid: 104971 } },
-    }),
-  })],
-}));
-```
-
-In the browser console, `marsView` and `marsMap` are exposed for debugging.
+Imagery: NASA/JPL/MSSS/The Murray Lab. Topography: NASA GSFC, DLR, USGS Astrogeology, JPL, ESA.

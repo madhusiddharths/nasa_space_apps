@@ -1,4 +1,13 @@
+# Large downloaded datasets (see DATA_SOURCES.md)
 /data/
+
+# Python
 .venv/
 __pycache__/
+*.pyc
+
+# Editor, tool and OS files
+.claude/
+.idea/
+.vscode/
 .DS_Store
