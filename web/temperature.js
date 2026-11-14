@@ -228,8 +228,8 @@ function addTemperatureLayer(map, view, { BaseTileLayer, Expand, tileInfo, fullE
   }
 
   view.on("click", (event) => {
-    if (!layer.visible || !event.mapPoint) return;
-    readPoint(event.mapPoint.longitude, event.mapPoint.latitude);
+    const where = layer.visible && clickedGroundPoint(event);   // from picking.js
+    if (where) readPoint(where.longitude, where.latitude);
   });
 
   render();

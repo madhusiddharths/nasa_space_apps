@@ -6,6 +6,7 @@
   <title>Interplanetary Survival Guide: Mars</title>
   <link rel="stylesheet" href="https://js.arcgis.com/4.26/esri/themes/dark/main.css" />
   <script src="https://js.arcgis.com/4.26/"></script>
+  <script src="picking.js"></script>
   <script src="temperature.js"></script>
   <script src="routing.js"></script>
   <style>
@@ -65,10 +66,10 @@
       "esri/Map", "esri/Camera", "esri/views/SceneView",
       "esri/layers/BaseElevationLayer", "esri/layers/BaseTileLayer", "esri/layers/support/TileInfo",
       "esri/layers/TileLayer", "esri/layers/FeatureLayer",
-      "esri/layers/GeoJSONLayer", "esri/layers/GroupLayer", "esri/layers/GraphicsLayer", "esri/Graphic",
+      "esri/layers/GeoJSONLayer", "esri/layers/GroupLayer", "esri/layers/GraphicsLayer", "esri/Graphic", "esri/geometry/Point",
       "esri/widgets/CoordinateConversion", "esri/widgets/LayerList", "esri/widgets/AreaMeasurement3D",
       "esri/widgets/Bookmarks", "esri/widgets/ElevationProfile", "esri/widgets/Expand",
-    ], (Map, Camera, SceneView, BaseElevationLayer, BaseTileLayer, TileInfo, TileLayer, FeatureLayer, GeoJSONLayer, GroupLayer, GraphicsLayer, Graphic,
+    ], (Map, Camera, SceneView, BaseElevationLayer, BaseTileLayer, TileInfo, TileLayer, FeatureLayer, GeoJSONLayer, GroupLayer, GraphicsLayer, Graphic, Point,
         CoordinateConversion, LayerList, AreaMeasurement3D, Bookmarks, ElevationProfile, Expand) => {
 
       // Tiling scheme of the CTX imagery, for layers served by server.py.
@@ -131,6 +132,10 @@
           tilt: 33,
         },
       });
+
+      // Clicks: the map engine leaves the clicked location empty over our terrain, so click
+      // handlers get it from clickedGroundPoint(event) instead (web/picking.js).
+      window.marsPicking = addGroundPicking(view, { Point });
 
       // ---- Imagery: Murray Lab global CTX mosaic, 5 m/px ----
       map.add(new TileLayer({
@@ -342,8 +347,9 @@
       rampLegend("radDoseLegend", radDose);
       rampLegend("radShelterLegend", radShelter);
       view.on("click", (event) => {
-        if (!radiationGroup.visible || !event.mapPoint) return;
-        const { longitude: lon, latitude: lat } = event.mapPoint;
+        const where = radiationGroup.visible && clickedGroundPoint(event);
+        if (!where) return;
+        const { longitude: lon, latitude: lat } = where;
         const out = document.getElementById("radPoint");
         fetch(`/radiation/point?lon=${lon}&lat=${lat}`)
           .then((r) => (r.ok ? r.json() : null))

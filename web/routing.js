@@ -207,9 +207,10 @@ function addRouting(map, view, { GraphicsLayer, Graphic, Expand }) {
     if (name) { state.shown[name] = e.target.checked; draw(); }
   });
   view.on("click", (event) => {
-    if (!state.picking || !event.mapPoint) return;
+    const where = state.picking && clickedGroundPoint(event);   // from picking.js
+    if (!where) return;
     event.stopPropagation();                    // no popup while picking a point
-    setPoint(state.picking, event.mapPoint.longitude, event.mapPoint.latitude);
+    setPoint(state.picking, where.longitude, where.latitude);
   });
 
   show();
