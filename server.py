@@ -1,4 +1,4 @@
-"""Serves the viewer (web/) and terrain tiles read from the local elevation file.
+"""Serves the viewer (web/) plus terrain, contour-line, ground-firmness and water-ice tiles from local data.
 
 Run:  .venv/bin/uvicorn server:app --port 8000
 """
@@ -8,7 +8,10 @@ from fastapi import FastAPI, HTTPException, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+import contours
 import elevation
+import firmness
+import ice
 import radiation
 
 app = FastAPI()
@@ -64,6 +67,31 @@ def radiation_shelters(count: int = 12):
 @app.get("/radiation/info")
 def radiation_info():
     return radiation.info()
+
+
+@app.get("/contours/{level}/{row}/{col}.png")
+def contour_tile(level: int, row: int, col: int):
+    return Response(contours.tile_png(level, row, col), media_type="image/png")
+
+
+@app.get("/firmness/{level}/{row}/{col}.png")
+def firmness_tile(level: int, row: int, col: int):
+    return Response(firmness.tile_png(level, row, col), media_type="image/png")
+
+
+@app.get("/firmness/legend")
+def firmness_legend():
+    return firmness.legend()
+
+
+@app.get("/ice/{level}/{row}/{col}.png")
+def ice_tile(level: int, row: int, col: int):
+    return Response(ice.tile_png(level, row, col), media_type="image/png")
+
+
+@app.get("/ice/legend")
+def ice_legend():
+    return ice.legend()
 
 
 app.mount("/", StaticFiles(directory="web", html=True))

@@ -11,7 +11,13 @@ The base layer: the whole planet in 3D, modelled on the
 
 - Global CTX imagery at 5 m per pixel, draped over 200 m terrain
 - Terrain read from our own copy of the NASA/USGS elevation data
-- Rover traverses (Curiosity, Perseverance), IAU feature names, impact craters, colored topography
+- Two topography layers that can be shown together: colored elevation, and contour lines
+  drawn from our elevation data (interval 2000 m zoomed out to 50 m zoomed in, bold lines labelled in metres)
+- Ground firmness: thermal inertia at 3 km per pixel, coloured in six classes from loose dust
+  (may not bear weight) to bedrock, with a legend
+- Water ice: depth to the shallowest ice at 3 km per pixel, white for polar surface ice and
+  light-to-dark blue for buried ice within 1 m, 1–5 m and deeper than 5 m, with a legend
+- Rover traverses (Curiosity, Perseverance), IAU feature names, impact craters
 - Coordinate readout, area measurement, elevation profile, layer list, bookmarks
 - Python helpers to read elevation and compute slope for any area
 
@@ -30,7 +36,9 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
 
-Then download the elevation data (15 GB, not in git): see [DATA_SOURCES.md](DATA_SOURCES.md).
+Then download the elevation data (15 GB), the thermal inertia map (52 MB) and the water-ice
+files (214 MB), none of them in git:
+see [DATA_SOURCES.md](DATA_SOURCES.md).
 
 ## Run
 
@@ -46,9 +54,12 @@ Open http://localhost:8000.
 |---|---|
 | `web/index.html` | The 3D viewer (ArcGIS Maps SDK for JS) |
 | `web/data/` | Small vector layers shipped with the repo |
-| `server.py` | Serves the viewer and terrain tiles from the local elevation file |
+| `server.py` | Serves the viewer and the terrain, contour, firmness and ice tiles from local data |
 | `elevation.py` | Reads elevation for a lon/lat box, computes slope, cuts terrain tiles |
 | `radiation.py` | Radiation dose rate, terrain shelter, dose along a route, map tiles |
+| `contours.py` | Draws contour-line map tiles from the elevation file |
+| `firmness.py` | Reads thermal inertia for a lon/lat box, classifies ground firmness, draws its map tiles |
+| `ice.py` | Combines polar surface ice and SWIM buried ice into depth classes, draws its map tiles |
 | `data/` | Large downloaded datasets (gitignored) |
 | `DATA_SOURCES.md` | Every dataset, download links, GIS conventions |
 
@@ -70,6 +81,30 @@ slope = elevation.slope_degrees(z, south=box[1], north=box[3], west=box[0], east
 # Whole planet on a coarse grid
 world = elevation.read_elevation(-180, -90, 180, 90, shape=(2880, 5760))
 ```
+
+**Ground firmness on the same grid:**
+
+```python
+import firmness
+
+ti = firmness.read_thermal_inertia(*box, shape=z.shape)   # float32 tiu, NaN = nodata
+soft = firmness.firmness_class(ti) == 0                   # loose dust, may not bear weight
+```
+
+Thermal inertia senses only the top few centimetres, averaged over 3 km, and is unreliable
+poleward of about 60° (ice and seasonal frost).
+
+**Water ice on the same grid:**
+
+```python
+import ice
+
+depth = ice.read_ice_class(*box, shape=z.shape)   # int8: 0 surface, 1 within 1 m, 2 1–5 m, 3 deeper, -1 none
+reachable = (depth == 0) | (depth == 1)           # ice on the surface or within 1 m
+```
+
+Buried ice is a SWIM consistency score of 0.3 or more, not a measured amount, and is mapped
+only between 60°S and 60°N. Between 60° and the polar ice nothing is mapped.
 
 To combine layers for routing, put each one on the same lon/lat box and array shape.
 
@@ -115,3 +150,5 @@ lists a warning for the leg or stop where the budget is crossed.
 ## Credits
 
 Imagery: NASA/JPL/MSSS/The Murray Lab. Topography: NASA GSFC, DLR, USGS Astrogeology, JPL, ESA.
+Thermal inertia: NASA/MGS/TES, Putzig & Mellon (2007).
+Water ice: SWIM project (Morgan & Putzig et al. 2025); polar ice units from USGS SIM 3292 (Tanaka et al. 2014).

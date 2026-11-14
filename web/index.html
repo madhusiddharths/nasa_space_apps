@@ -29,6 +29,9 @@
     #radiationPanel table { width: 100%; border-collapse: collapse; margin-top: 6px; }
     #radiationPanel td { padding: 1px 0; }
     #radiationPanel td:last-child { text-align: right; color: #fff; font-variant-numeric: tabular-nums; }
+    .legend { background: #242424; color: #d1d1d1; padding: 8px 10px; font-size: 12px; line-height: 1.5; max-width: 250px; }
+    .legend b { color: white; }
+    .legend i { display: inline-block; width: 12px; height: 12px; margin-right: 6px; vertical-align: -2px; }
   </style>
 </head>
 <body>
@@ -70,8 +73,21 @@
     ], (Map, Camera, SceneView, BaseElevationLayer, BaseTileLayer, TileInfo, TileLayer, FeatureLayer, GeoJSONLayer, GroupLayer,
         CoordinateConversion, LayerList, AreaMeasurement3D, Bookmarks, ElevationProfile, Expand) => {
 
+      // Tiling scheme of the CTX imagery, for layers served by server.py.
+      const MARS_EXTENT = { xmin: -180, ymin: -90, xmax: 180, ymax: 90, spatialReference: { wkid: MARS_WKID } };
+      const marsTileInfo = (levels) => new TileInfo({
+        size: [512, 512],
+        origin: { x: -180, y: 90, spatialReference: { wkid: MARS_WKID } },
+        spatialReference: { wkid: MARS_WKID },
+        lods: Array.from({ length: levels }, (_, level) => ({
+          level,
+          resolution: 0.3515625 / 2 ** level,
+          scale: 78760513.4003741 / 2 ** level,
+        })),
+      });
+
       // ---- Terrain: HRSC + MOLA blended DEM, 200 m/px, read from the local file
-      // by server.py. Tiling scheme matches the CTX imagery (levels 0-7). ----
+      // by server.py (levels 0-7). ----
       const LocalElevationLayer = BaseElevationLayer.createSubclass({
         fetchTile(level, row, col, options) {
           return fetch(`/elevation/${level}/${row}/${col}`, { signal: options && options.signal })
@@ -82,17 +98,8 @@
       const marsElevation = new LocalElevationLayer({
         copyright: "Topography: NASA GSFC, DLR, USGS Astrogeology, JPL",
         spatialReference: { wkid: MARS_WKID },
-        fullExtent: { xmin: -180, ymin: -90, xmax: 180, ymax: 90, spatialReference: { wkid: MARS_WKID } },
-        tileInfo: new TileInfo({
-          size: [512, 512],
-          origin: { x: -180, y: 90, spatialReference: { wkid: MARS_WKID } },
-          spatialReference: { wkid: MARS_WKID },
-          lods: Array.from({ length: 8 }, (_, level) => ({
-            level,
-            resolution: 0.3515625 / 2 ** level,
-            scale: 78760513.4003741 / 2 ** level,
-          })),
-        }),
+        fullExtent: MARS_EXTENT,
+        tileInfo: marsTileInfo(8),
       });
 
       const map = new Map({ ground: { layers: [marsElevation] }, layers: [] });
@@ -102,6 +109,9 @@
         container: "viewDiv",
         qualityProfile: "high",
         spatialReference: { wkid: MARS_WKID },
+        // Even light from the camera, so layer colours read the same everywhere
+        // (the default sun lighting leaves the poles and the night side dark).
+        environment: { lighting: { type: "virtual" } },
         camera: {
           position: { x: -75, y: -24, z: 1281525.766, spatialReference: MARS_WKID },
           heading: 0,
@@ -204,6 +214,52 @@
         visible: false,
       }));
 
+      // Ground firmness: thermal inertia (TES, 3 km/px) coloured by surface class,
+      // drawn by server.py. Added before the contours so their lines stay on top.
+      const FirmnessLayer = BaseTileLayer.createSubclass({
+        getTileUrl: (level, row, col) => `/firmness/${level}/${row}/${col}.png`,
+      });
+      const firmnessLayer = new FirmnessLayer({
+        title: "Ground Firmness (thermal inertia)",
+        copyright: "Thermal inertia: NASA/MGS/TES, Putzig & Mellon 2007",
+        spatialReference: { wkid: MARS_WKID },
+        fullExtent: MARS_EXTENT,
+        tileInfo: marsTileInfo(8),
+        opacity: 0.6,
+        visible: false,
+      });
+      map.add(firmnessLayer);
+
+      // Water ice: depth to the shallowest ice (white = on the surface, darker blue =
+      // deeper), from SWIM and the USGS polar ice units, drawn by server.py.
+      const IceLayer = BaseTileLayer.createSubclass({
+        getTileUrl: (level, row, col) => `/ice/${level}/${row}/${col}.png`,
+      });
+      const iceLayer = new IceLayer({
+        title: "Water Ice (depth to ice)",
+        copyright: "Ice: SWIM (Morgan & Putzig et al. 2025), USGS SIM 3292",
+        spatialReference: { wkid: MARS_WKID },
+        fullExtent: MARS_EXTENT,
+        tileInfo: marsTileInfo(8),
+        opacity: 0.7,
+        visible: false,
+      });
+      map.add(iceLayer);
+
+      // Contour lines drawn by server.py from the local elevation file. The interval
+      // tightens with zoom (2000 m down to 50 m); bold lines carry their elevation.
+      const ContourLayer = BaseTileLayer.createSubclass({
+        getTileUrl: (level, row, col) => `/contours/${level}/${row}/${col}.png`,
+      });
+      map.add(new ContourLayer({
+        title: "Contour Lines (elevation in m)",
+        copyright: "Contours: derived from HRSC+MOLA DEM",
+        spatialReference: { wkid: MARS_WKID },
+        fullExtent: MARS_EXTENT,
+        tileInfo: marsTileInfo(13),
+        visible: false,
+      }));
+
       // ---- Team layers go here (see web/README.md) ----
       // map.add(new TileLayer / ImageryTileLayer / GeoJSONLayer({...}));
 
@@ -297,6 +353,29 @@
       view.ui.add(expand(new ElevationProfile({ view })), "top-left", 2);
       view.ui.add(expand(new LayerList({ view })), "top-left", 3);
       view.ui.add(expand(new Bookmarks({ view, editingEnabled: true })), "top-left", 4);
+
+      // Firmness legend, shown only while the layer is on. Classes come from firmness.py.
+      const firmnessLegend = document.createElement("div");
+      firmnessLegend.className = "legend";
+      firmnessLegend.hidden = true;
+      firmnessLayer.watch("visible", (visible) => { firmnessLegend.hidden = !visible; });
+      view.ui.add(firmnessLegend, "top-right");
+      fetch("/firmness/legend").then((r) => r.json()).then((classes) => {
+        firmnessLegend.innerHTML = "<b>Ground firmness</b><br>Thermal inertia, 3 km resolution<br>" +
+          classes.map((c) => `<i style="background:${c.color}"></i>${c.label} (${c.range})`).join("<br>");
+      });
+
+      // Water-ice legend, shown only while the layer is on. Classes come from ice.py.
+      const iceLegend = document.createElement("div");
+      iceLegend.className = "legend";
+      iceLegend.hidden = true;
+      iceLayer.watch("visible", (visible) => { iceLegend.hidden = !visible; });
+      view.ui.add(iceLegend, "top-right");
+      fetch("/ice/legend").then((r) => r.json()).then((classes) => {
+        iceLegend.innerHTML = "<b>Water ice</b><br>Depth to the shallowest ice, 3 km resolution<br>" +
+          classes.map((c) => `<i style="background:${c.color}"></i>${c.label}`).join("<br>") +
+          "<br>No colour: no ice found, or not mapped (60° to the polar ice)";
+      });
 
       // ---- Bookmark buttons: [label, lon, lat, altitude m, heading, tilt] ----
       const places = [

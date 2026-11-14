@@ -26,7 +26,7 @@ _dem = None
 _lock = threading.Lock()  # one GDAL handle shared by the server's worker threads
 
 
-def read_elevation(west, south, east, north, shape=None):
+def read_elevation(west, south, east, north, shape=None, resampling=Resampling.bilinear):
     """Elevation in metres for a lon/lat box, as float32 rows running north to south.
 
     shape=(rows, cols) resamples to that size (coarse sizes read the file's built-in
@@ -38,7 +38,7 @@ def read_elevation(west, south, east, north, shape=None):
         if _dem is None:
             _dem = rasterio.open(DEM_PATH)
         window = from_bounds(west, south, east, north, _dem.transform)
-        data = _dem.read(1, window=window, out_shape=shape, resampling=Resampling.bilinear)
+        data = _dem.read(1, window=window, out_shape=shape, resampling=resampling)
     data = data.astype(np.float32)
     data[data == NODATA] = np.nan
     return data
