@@ -29,7 +29,8 @@ function addRouting(map, view, { GraphicsLayer, GroupLayer, Graphic, Expand, coo
   // Lines lie on the ground; markers float above it on a thin stem.
   const layer = new GraphicsLayer({ title: "Route lines", elevationInfo: { mode: "on-the-ground" } });
   const markers = new GraphicsLayer({ title: "Route markers", elevationInfo: { mode: "relative-to-ground" } });
-  map.add(new GroupLayer({ title: "Astronaut Route", layers: [layer, markers], listMode: "hide-children" }));
+  const group = new GroupLayer({ title: "Astronaut Route", layers: [layer, markers], listMode: "hide-children" });
+  map.add(group);
 
   // ---- Panel (styled in theme.css) ----
 
@@ -256,13 +257,15 @@ Lines of light: solid by rover, dotted on foot. P: where the rover is boarded or
     layer.add(new Graphic({ geometry: polyline(line), symbol: stroke(color, width, lineStyle), ...extra }));
   const rgba = (hex, alpha) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).concat(alpha);
 
-  // A line of light: a wide faint halo, a dark casing so it reads on any ground, the
-  // coloured core, and a thin bright centre. Walked lines are dotted and have no centre.
+  // A line of light, from the outside in: a wide faint glow, a dark casing so it reads on
+  // any ground, a tighter and stronger glow, the coloured core, and a bright centre.
+  // Walked lines are dotted and have no centre.
   function addBeam(line, color, { dotted = false, width = 3, extra = {} } = {}) {
-    addLine(line, rgba(color, 0.2), width + 10);
-    addLine(line, [...HOLO.glass, 0.8], width + 3);
+    addLine(line, rgba(color, 0.18), width + 16);
+    addLine(line, [...HOLO.glass, 0.6], width + 8);
+    addLine(line, rgba(color, 0.5), width + 6);
     addLine(line, color, width, extra, dotted ? "short-dot" : "solid");
-    if (!dotted) addLine(line, [255, 255, 255, 0.85], 1);
+    if (!dotted) addLine(line, [255, 255, 255, 0.95], 1.5);
   }
 
   // A marker: a diamond with a letter, floating above the ground on a thin stem, and a
@@ -457,7 +460,7 @@ Lines of light: solid by rover, dotted on foot. P: where the rover is boarded or
   // plan([lon, lat], [lon, lat]) sets both points and resolves when the routes are drawn.
   // search("A" or "B", text) types into a search box and submits it. parseLatLon is the coordinate reader.
   return {
-    layer, markers, state, parseLatLon,
+    layer, markers, group, state, parseLatLon,
     plan: (start, end) => {
       Object.assign(state, { start, end, names: { start: "", end: "" }, picking: null });
       inputs.start.value = position(start);
