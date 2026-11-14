@@ -28,6 +28,12 @@ mkdir -p data/elevation && cd data/elevation && curl -L -C - -O https://planetar
 
 Dataset page: https://astrogeology.usgs.gov/search/map/mars_mgs_mola_mex_hrsc_blended_dem_global_200m
 
+Optional: `python scripts/build_elevation_cog.py` writes a tiled, compressed copy of the two
+elevation files into the same folder (`..._v2_cog.tif`, 3.8 GB against 15.2 GB, a few
+minutes). It holds exactly the same heights, with the low-resolution copies inside the one
+file. `elevation.py` uses the copy when it is there and the original two files when it is
+not, so the copy alone is enough on a server.
+
 Thermal inertia:
 
 ```bash
@@ -55,6 +61,7 @@ data/
   elevation/
     Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif
     Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif.ovr
+    Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2_cog.tif   optional, made by scripts/build_elevation_cog.py
   thermal_inertia/
     global_ti_night_2007.img
     global_ti_night_2007.lbl

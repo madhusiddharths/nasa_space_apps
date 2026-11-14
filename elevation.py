@@ -4,6 +4,8 @@ GIS facts about the file (every other layer should be put on the same grid):
   CRS         GCS_Mars_2000_Sphere (Esri wkid 104971), plain lon/lat degrees
   Extent      lon -180..180 (east positive), lat 90..-90 (row 0 is north)
   Size        106694 x 53347 px, 0.003374120830641 deg/px (200 m at the equator)
+  Storage     the USGS file is uncompressed rows as wide as the planet, with its reduced
+              copies in a separate .ovr file (15 GB together)
   Values      int16 metres above the MOLA areoid, range -8528..21226, nodata -32768
   Sphere      radius 3,396,190 m, so 1 deg of latitude = 59,274.7 m everywhere
               and 1 deg of longitude = 59,274.7 * cos(lat) m
@@ -19,13 +21,16 @@ from rasterio.windows import from_bounds
 
 import tiles
 
-DEM_PATH = Path(__file__).parent / "data/elevation/Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif"
+SOURCE_DEM_PATH = Path(__file__).parent / "data/elevation/Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif"
+COG_DEM_PATH = SOURCE_DEM_PATH.with_name("Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2_cog.tif")
+# The copy is the same heights in a tiled, compressed file a quarter of the size, written by
+# scripts/build_elevation_cog.py. It is used when it is there; the original works without it.
+DEM_PATH = COG_DEM_PATH if COG_DEM_PATH.exists() else SOURCE_DEM_PATH
 MARS_RADIUS_M = 3396190.0
 M_PER_DEG = math.pi * MARS_RADIUS_M / 180
 NODATA = -32768
 
-_dem = None
-_lock = threading.Lock()  # one GDAL handle shared by the server's worker threads
+_handles = threading.local()  # one GDAL handle per server thread, so reads run side by side
 
 
 def read_elevation(west, south, east, north, shape=None, resampling=Resampling.bilinear):
@@ -35,12 +40,11 @@ def read_elevation(west, south, east, north, shape=None, resampling=Resampling.b
     overviews, so whole-planet reads are fast). Default is native 200 m resolution.
     Nodata cells are NaN.
     """
-    global _dem
-    with _lock:
-        if _dem is None:
-            _dem = rasterio.open(DEM_PATH)
-        window = from_bounds(west, south, east, north, _dem.transform)
-        data = _dem.read(1, window=window, out_shape=shape, resampling=resampling)
+    if not hasattr(_handles, "dem"):
+        _handles.dem = rasterio.open(DEM_PATH)
+    dem = _handles.dem
+    window = from_bounds(west, south, east, north, dem.transform)
+    data = dem.read(1, window=window, out_shape=shape, resampling=resampling)
     data = data.astype(np.float32)
     data[data == NODATA] = np.nan
     return data
