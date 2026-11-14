@@ -16,10 +16,41 @@
       color: #d1d1d1; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); cursor: pointer;
     }
     .buttonsContainer button:hover { color: white; }
+    /* Radiation layer legend */
+    #radiationPanel {
+      position: absolute; top: 15px; right: 60px; z-index: 1; width: 250px; padding: 10px 12px;
+      background: rgba(36, 36, 36, 0.92); color: #e0e0e0; font: 13px/1.4 "Avenir Next", Arial, sans-serif;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); display: none;
+    }
+    #radiationPanel h3 { margin: 0 0 6px; font-size: 14px; color: #fff; }
+    #radiationPanel .ramp { height: 10px; margin: 4px 0 2px; }
+    #radiationPanel .ticks { display: flex; justify-content: space-between; font-size: 11px; color: #b0b0b0; }
+    #radiationPanel .note { font-size: 11px; color: #b0b0b0; margin-top: 6px; }
+    #radiationPanel table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+    #radiationPanel td { padding: 1px 0; }
+    #radiationPanel td:last-child { text-align: right; color: #fff; font-variant-numeric: tabular-nums; }
   </style>
 </head>
 <body>
   <div id="viewDiv"></div>
+  <div id="radiationPanel">
+    <h3>Radiation (Gale crater)</h3>
+    <div id="radDoseLegend">
+      Dose rate, mSv per day
+      <div class="ramp" style="background: linear-gradient(90deg, #440154, #3b528b, #21918c, #5ec962, #fde725)"></div>
+      <div class="ticks"><span>&le; 0.60</span><span>0.70</span><span>&ge; 0.80</span></div>
+    </div>
+    <div id="radShelterLegend" style="margin-top: 6px">
+      Sky blocked by terrain
+      <div class="ramp" style="background: linear-gradient(90deg, rgba(255,255,255,0), #40e0d0, #0060a0)"></div>
+      <div class="ticks"><span>&le; 5%</span><span>15%</span><span>&ge; 25%</span></div>
+    </div>
+    <div id="radPoint" class="note">Click the map for the dose at that spot.</div>
+    <div class="note">
+      Modelled estimate from 200 m terrain, anchored to the Curiosity RAD measurement
+      (0.64 mSv/day at the landing site). Quiet-Sun conditions; solar storms not included.
+    </div>
+  </div>
   <div id="optionsDiv"><div class="buttonsContainer" id="bookmarkButtons"></div></div>
 
   <script>
@@ -31,12 +62,12 @@
 
     require([
       "esri/Map", "esri/Camera", "esri/views/SceneView",
-      "esri/layers/BaseElevationLayer", "esri/layers/support/TileInfo",
+      "esri/layers/BaseElevationLayer", "esri/layers/BaseTileLayer", "esri/layers/support/TileInfo",
       "esri/layers/TileLayer", "esri/layers/FeatureLayer",
       "esri/layers/GeoJSONLayer", "esri/layers/GroupLayer",
       "esri/widgets/CoordinateConversion", "esri/widgets/LayerList", "esri/widgets/AreaMeasurement3D",
       "esri/widgets/Bookmarks", "esri/widgets/ElevationProfile", "esri/widgets/Expand",
-    ], (Map, Camera, SceneView, BaseElevationLayer, TileInfo, TileLayer, FeatureLayer, GeoJSONLayer, GroupLayer,
+    ], (Map, Camera, SceneView, BaseElevationLayer, BaseTileLayer, TileInfo, TileLayer, FeatureLayer, GeoJSONLayer, GroupLayer,
         CoordinateConversion, LayerList, AreaMeasurement3D, Bookmarks, ElevationProfile, Expand) => {
 
       // ---- Terrain: HRSC + MOLA blended DEM, 200 m/px, read from the local file
@@ -175,6 +206,83 @@
 
       // ---- Team layers go here (see web/README.md) ----
       // map.add(new TileLayer / ImageryTileLayer / GeoJSONLayer({...}));
+
+      // ---- Radiation (radiation.py): modelled dose rate and terrain shelter, Gale crater.
+      // PNG tiles from server.py, same tiling scheme as the CTX imagery (levels 0-9). ----
+      const RadiationTiles = BaseTileLayer.createSubclass({
+        properties: { kind: null },
+        getTileUrl(level, row, col) { return `/radiation/tiles/${this.kind}/${level}/${row}/${col}.png`; },
+      });
+      const radiationLayer = (kind, title, visible, opacity) => new RadiationTiles({
+        kind, title, visible, opacity,
+        copyright: "Radiation: modelled, anchored to NASA/JPL/SwRI Curiosity RAD",
+        spatialReference: { wkid: MARS_WKID },
+        fullExtent: { xmin: -180, ymin: -90, xmax: 180, ymax: 90, spatialReference: { wkid: MARS_WKID } },
+        tileInfo: new TileInfo({
+          size: [512, 512],
+          origin: { x: -180, y: 90, spatialReference: { wkid: MARS_WKID } },
+          spatialReference: { wkid: MARS_WKID },
+          lods: Array.from({ length: 10 }, (_, level) => ({
+            level,
+            resolution: 0.3515625 / 2 ** level,
+            scale: 78760513.4003741 / 2 ** level,
+          })),
+        }),
+      });
+      const radDose = radiationLayer("dose", "Dose rate (modelled)", true, 0.7);
+      const radShelter = radiationLayer("shelter", "Sky blocked by terrain (modelled)", false, 0.9);
+      const radShelters = new GeoJSONLayer({
+        url: "/radiation/shelters.geojson",
+        title: "Best natural shelters (modelled)",
+        renderer: { type: "simple", symbol: { type: "simple-marker", style: "diamond", color: "#40e0d0", size: 11, outline: { color: "black", width: 1 } } },
+        labelingInfo: label3d("name", 30, 0.5),
+        popupTemplate: fieldsPopup("{name}", [
+          ["sky_blocked_pct", "Sky blocked by terrain (%)"], ["dose_eq_msv_per_day", "Dose rate (mSv/day)"],
+          ["vs_landing_site_pct", "Compared with landing site (%)"], ["elevation_m", "Elevation (m)"], ["note", "Note"],
+        ]),
+      });
+      const radMeasured = new GeoJSONLayer({
+        url: "data/rad-measurement.geojson",
+        title: "Curiosity RAD measurement (measured)",
+        renderer: { type: "simple", symbol: { type: "simple-marker", color: "#fde725", size: 12, outline: { color: "black", width: 1 } } },
+        labelingInfo: label3d("name", 30, 0.5),
+        popupTemplate: fieldsPopup("{name}", [
+          ["dose_eq_msv_per_day", "Dose equivalent (mSv/day)"], ["absorbed_mgy_per_day", "Absorbed dose (mGy/day)"],
+          ["period", "Period"], ["source", "Source"], ["link", "Link"],
+        ]),
+      });
+      const radiationGroup = new GroupLayer({
+        title: "Radiation (Gale crater)",
+        visible: false,
+        layers: [radDose, radShelter, radShelters, radMeasured],
+      });
+      map.add(radiationGroup);
+
+      // Legend follows layer visibility; a map click reads the dose at that spot.
+      const radPanel = document.getElementById("radiationPanel");
+      const syncRadiationPanel = () => {
+        radPanel.style.display = radiationGroup.visible ? "block" : "none";
+        document.getElementById("radDoseLegend").style.display = radDose.visible ? "block" : "none";
+        document.getElementById("radShelterLegend").style.display = radShelter.visible ? "block" : "none";
+      };
+      [radiationGroup, radDose, radShelter].forEach((l) => l.watch("visible", syncRadiationPanel));
+      view.on("click", (event) => {
+        if (!radiationGroup.visible || !event.mapPoint) return;
+        const { longitude: lon, latitude: lat } = event.mapPoint;
+        const out = document.getElementById("radPoint");
+        fetch(`/radiation/point?lon=${lon}&lat=${lat}`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((p) => {
+            out.innerHTML = p ? `<table>
+              <tr><td>Dose rate</td><td>${p.dose_eq_msv_per_day.toFixed(3)} mSv/day</td></tr>
+              <tr><td></td><td>${p.dose_eq_usv_per_hour.toFixed(1)} &micro;Sv/hour</td></tr>
+              <tr><td>vs landing site</td><td>${p.vs_landing_site_pct > 0 ? "+" : ""}${p.vs_landing_site_pct.toFixed(1)}%</td></tr>
+              <tr><td>Sky blocked</td><td>${p.sky_blocked_pct.toFixed(1)}%</td></tr>
+              <tr><td>Elevation</td><td>${Math.round(p.elevation_m)} m</td></tr>
+            </table>` : "No radiation estimate here: outside the Gale study area.";
+          })
+          .catch(() => { out.textContent = "Radiation service not reachable."; });
+      });
 
       // ---- Widgets ----
       view.ui.move(["navigation-toggle", "compass", "zoom"], "top-right");

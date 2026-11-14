@@ -1,0 +1,23 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          137.4417,
+          -4.5895
+        ]
+      },
+      "properties": {
+        "name": "RAD: 0.64 mSv/day (measured)",
+        "dose_eq_msv_per_day": "0.64 +/- 0.12",
+        "absorbed_mgy_per_day": "0.210 +/- 0.040",
+        "period": "August 2012 to June 2013, near Bradbury Landing",
+        "source": "Hassler et al. 2014, Science 343, 1244797 (MSL Radiation Assessment Detector)",
+        "link": "https://doi.org/10.1126/science.1244797"
+      }
+    }
+  ]
+}
