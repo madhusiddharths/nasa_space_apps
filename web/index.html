@@ -16,6 +16,9 @@
       color: #d1d1d1; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); cursor: pointer;
     }
     .buttonsContainer button:hover { color: white; }
+    .legend { background: #242424; color: #d1d1d1; padding: 8px 10px; font-size: 12px; line-height: 1.5; max-width: 250px; }
+    .legend b { color: white; }
+    .legend i { display: inline-block; width: 12px; height: 12px; margin-right: 6px; vertical-align: -2px; }
   </style>
 </head>
 <body>
@@ -177,6 +180,22 @@
         visible: false,
       }));
 
+      // Ground firmness: thermal inertia (TES, 3 km/px) coloured by surface class,
+      // drawn by server.py. Added before the contours so their lines stay on top.
+      const FirmnessLayer = BaseTileLayer.createSubclass({
+        getTileUrl: (level, row, col) => `/firmness/${level}/${row}/${col}.png`,
+      });
+      const firmnessLayer = new FirmnessLayer({
+        title: "Ground Firmness (thermal inertia)",
+        copyright: "Thermal inertia: NASA/MGS/TES, Putzig & Mellon 2007",
+        spatialReference: { wkid: MARS_WKID },
+        fullExtent: MARS_EXTENT,
+        tileInfo: marsTileInfo(8),
+        opacity: 0.6,
+        visible: false,
+      });
+      map.add(firmnessLayer);
+
       // Contour lines drawn by server.py from the local elevation file. The interval
       // tightens with zoom (2000 m down to 50 m); bold lines carry their elevation.
       const ContourLayer = BaseTileLayer.createSubclass({
@@ -207,6 +226,17 @@
       view.ui.add(expand(new ElevationProfile({ view })), "top-left", 2);
       view.ui.add(expand(new LayerList({ view })), "top-left", 3);
       view.ui.add(expand(new Bookmarks({ view, editingEnabled: true })), "top-left", 4);
+
+      // Firmness legend, shown only while the layer is on. Classes come from firmness.py.
+      const firmnessLegend = document.createElement("div");
+      firmnessLegend.className = "legend";
+      firmnessLegend.hidden = true;
+      firmnessLayer.watch("visible", (visible) => { firmnessLegend.hidden = !visible; });
+      view.ui.add(firmnessLegend, "top-right");
+      fetch("/firmness/legend").then((r) => r.json()).then((classes) => {
+        firmnessLegend.innerHTML = "<b>Ground firmness</b><br>Thermal inertia, 3 km resolution<br>" +
+          classes.map((c) => `<i style="background:${c.color}"></i>${c.label} (${c.range})`).join("<br>");
+      });
 
       // ---- Bookmark buttons: [label, lon, lat, altitude m, heading, tilt] ----
       const places = [
