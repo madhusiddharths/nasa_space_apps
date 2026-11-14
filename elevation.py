@@ -17,6 +17,8 @@ import rasterio
 from rasterio.enums import Resampling
 from rasterio.windows import from_bounds
 
+import tiles
+
 DEM_PATH = Path(__file__).parent / "data/elevation/Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif"
 MARS_RADIUS_M = 3396190.0
 M_PER_DEG = math.pi * MARS_RADIUS_M / 180
@@ -60,19 +62,15 @@ def slope_degrees(elevation, south, north, west, east):
     return np.degrees(np.arctan(np.hypot(dz_dx / dx, dz_dy / dy)))
 
 
-# --- Terrain tiles for the 3D viewer ---
-# Same tiling scheme as the CTX imagery: origin (-180, 90), level 0 is two
-# 180-degree tiles, each level halves the tile span.
+# --- Terrain tiles for the 3D viewer (tiling scheme in tiles.py) ---
 TILE_SAMPLES = 257  # 256 intervals; first and last sample sit on the tile edges
 
 
 def tile(level, row, col):
     """Float32 elevation samples (257 x 257) for one viewer terrain tile."""
-    span = 180 / 2**level
-    half = span / (TILE_SAMPLES - 1) / 2
-    west = max(-180 + col * span - half, -180)
-    east = min(-180 + (col + 1) * span + half, 180)
-    north = min(90 - row * span + half, 90)
-    south = max(90 - (row + 1) * span - half, -90)
-    data = read_elevation(west, south, east, north, shape=(TILE_SAMPLES, TILE_SAMPLES))
+    west, south, east, north = tiles.bounds(level, row, col)
+    half = (east - west) / (TILE_SAMPLES - 1) / 2  # half a sample, so samples land on the edges
+    data = read_elevation(max(west - half, -180), max(south - half, -90),
+                          min(east + half, 180), min(north + half, 90),
+                          shape=(TILE_SAMPLES, TILE_SAMPLES))
     return np.nan_to_num(data, nan=NODATA)

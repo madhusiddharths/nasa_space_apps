@@ -27,14 +27,17 @@ data/radiation/, so this layer works in Gale either way.
 Run `python radiation.py` to build the caches and print a summary.
 """
 import math
-import struct
 import threading
-import zlib
 from pathlib import Path
 
 import numpy as np
+import rasterio
+from rasterio.enums import Resampling
+from rasterio.windows import from_bounds
 
 import elevation
+import tiles
+from tiles import TILE_PX
 
 # ---- Measurements (anchors) ----
 RAD_DOSE_MGY_DAY = 0.210      # Hassler et al. 2014, absorbed dose, +/- 0.040
@@ -140,9 +143,6 @@ def _gale_elevation():
         return elevation.read_elevation(*GALE_BOX, shape=GALE_SHAPE)
 
     def download():
-        import rasterio
-        from rasterio.enums import Resampling
-        from rasterio.windows import from_bounds
         print("radiation: fetching the Gale elevation window from USGS (one time, about 30 s)...")
         with rasterio.open(REMOTE_DEM) as dem:
             window = from_bounds(*GALE_BOX, dem.transform)
@@ -201,8 +201,7 @@ def dose_grid(west, south, east, north, shape):
     """Dose equivalent rate (mSv/day) on a lon/lat box and array shape, for combining with
     the other layers. Terrain shelter is included inside GALE_BOX; elsewhere it needs the
     local DEM and is elevation-only. NaN where there is no elevation."""
-    lon = west + (np.arange(shape[1]) + 0.5) * (east - west) / shape[1]
-    lat = north - (np.arange(shape[0]) + 0.5) * (north - south) / shape[0]
+    lat, lon = tiles.cell_centres(west, south, east, north, *shape)
     lon, lat = np.meshgrid(lon, lat)
     g = gale()
     blocked = np.nan_to_num(_bilinear(g["sky_blocked"], lon, lat), nan=_anchor()[1])
@@ -364,13 +363,12 @@ def info():
 
 # ---------------------------------------------------------------- map tiles
 
-# Tiles use the viewer's scheme: origin (-180, 90), level 0 is two 180-degree tiles.
-TILE_PX = 512
+# Tiling scheme in tiles.py.
 DOSE_SCALE = (0.60, 0.80)       # mSv/day, colours clamp outside this
 SHELTER_SCALE = (0.05, 0.25)    # fraction of sky blocked; below the low end is transparent
 _VIRIDIS = np.array([[68, 1, 84], [59, 82, 139], [33, 145, 140], [94, 201, 98], [253, 231, 37]], dtype=np.float64)
 _SHELTER = np.array([[255, 255, 255], [64, 224, 208], [0, 96, 160]], dtype=np.float64)
-_EMPTY = None
+_EMPTY = tiles.png(np.zeros((TILE_PX, TILE_PX, 4), dtype=np.uint8))
 
 
 def _colors(t, ramp):
@@ -380,25 +378,9 @@ def _colors(t, ramp):
     return ramp[i] * (1 - f) + ramp[i + 1] * f
 
 
-def _png(rgba):
-    h, w, _ = rgba.shape
-    raw = np.hstack([np.zeros((h, 1), dtype=np.uint8), rgba.reshape(h, w * 4)]).tobytes()
-
-    def chunk(kind, data):
-        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
-
-    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 6, 0, 0, 0))
-            + chunk(b"IDAT", zlib.compress(raw, 6)) + chunk(b"IEND", b""))
-
-
 def tile_png(kind, level, row, col):
     """PNG map tile. kind: 'dose' (dose equivalent rate) or 'shelter' (sky blocked)."""
-    global _EMPTY
-    if _EMPTY is None:
-        _EMPTY = _png(np.zeros((TILE_PX, TILE_PX, 4), dtype=np.uint8))
-    span = 180 / 2 ** level
-    west, north = -180 + col * span, 90 - row * span
-    east, south = west + span, north - span
+    west, south, east, north = tiles.bounds(level, row, col)
     gw, gs, ge, gn = GALE_BOX
     in_gale = west < ge and east > gw and south < gn and north > gs
     rgba = np.zeros((TILE_PX, TILE_PX, 4), dtype=np.uint8)
@@ -411,15 +393,14 @@ def tile_png(kind, level, row, col):
     elif kind == "shelter":
         if not in_gale:
             return _EMPTY
-        lon = west + (np.arange(TILE_PX) + 0.5) * span / TILE_PX
-        lat = north - (np.arange(TILE_PX) + 0.5) * span / TILE_PX
+        lat, lon = tiles.cell_centres(west, south, east, north, TILE_PX, TILE_PX)
         value = _bilinear(gale()["sky_blocked"], *np.meshgrid(lon, lat))
         t = np.nan_to_num((value - SHELTER_SCALE[0]) / (SHELTER_SCALE[1] - SHELTER_SCALE[0]), nan=0.0)
         rgba[..., :3] = _colors(t, _SHELTER)
         rgba[..., 3] = np.clip(t * 3, 0, 1) * 220          # open sky is transparent
     else:
         raise ValueError("kind must be 'dose' or 'shelter'")
-    return _png(rgba)
+    return tiles.png(rgba)
 
 
 if __name__ == "__main__":
