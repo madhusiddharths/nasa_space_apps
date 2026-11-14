@@ -63,6 +63,33 @@ data/
     polar_surface_ice.geojson
 ```
 
+## Radiation layer
+
+No download needed for Gale crater. If the 15 GB elevation file above is missing,
+`radiation.py` fetches only the Gale window (136.5 to 139.0°E, 6.0 to 4.0°S) from the same
+USGS file on first use (about 30 s) and caches it in `data/radiation/`.
+
+Every radiation value shown is a **modelled estimate** except the RAD marker, which is a
+**measurement**.
+
+| Source | Kind | What we take from it | Link |
+|---|---|---|---|
+| Curiosity RAD, surface dose at Gale (Hassler et al. 2014, *Science* 343, 1244797) | Measured | The anchor: 0.210 ± 0.040 mGy/day absorbed dose, 0.64 ± 0.12 mSv/day dose equivalent, Aug 2012 to Jun 2013 | [doi:10.1126/science.1244797](https://doi.org/10.1126/science.1244797) |
+| Curiosity RAD beside butte M12, sols 1456 to 1467 (Ehresmann et al. 2021, *JGR Planets* 126, e2021JE006851) | Measured | Shelter strength: 19% of the sky blocked lowered the dose rate by 4% | [doi:10.1029/2021JE006851](https://doi.org/10.1029/2021JE006851) |
+| Odyssey MARIE + MOLA estimated dose map (NASA/JPL PIA03480) | Modelled by NASA | How much dose changes with elevation: 10 rem/yr on the lowest ground to 20 rem/yr on the highest | [PIA03480](https://www.jpl.nasa.gov/images/pia03480-estimated-radiation-dosage-on-mars/) |
+| HRSC + MOLA elevation (above) | Measured | Elevation, and the horizon scan for terrain shelter | see "Download after cloning" |
+
+Model assumptions (all in `radiation.py`, also served at `/radiation/info`): 610 Pa mean
+pressure at 0 m, 11.1 km atmospheric scale height, 3.71 m/s² gravity, exponential
+attenuation of dose with atmospheric column (47.6 g/cm², fitted to the PIA03480 range),
+horizon scanned in 16 directions out to 20 km on 200 m terrain. The 0.3 mSv excursion
+budget is a team planning number, not a NASA limit; the 600 mSv career limit is from
+NASA-STD-3001.
+
+Limits: no solar particle events or solar-cycle changes, no dust or seasonal pressure
+changes, and cliffs or buttes smaller than 200 m are not seen, so real shelter can be
+better than shown.
+
 ## Already in the repo (`web/data/`)
 
 Copied from the Murray Lab CTX viewer. No download needed.
@@ -71,6 +98,7 @@ Copied from the Murray Lab CTX viewer. No download needed.
 |---|---|---|
 | `MSL_3420.geojson` | Curiosity traverse, to sol 3420 | [Murray Lab](https://murray-lab.caltech.edu/CTX/V01/SceneView/Features/MSL_3420.geojson), NASA/JPL/MSL |
 | `Mars2020_0678.geojson` | Perseverance traverse, to sol 678 | [Murray Lab](https://murray-lab.caltech.edu/CTX/V01/SceneView/Features/Mars2020_0678.geojson), NASA/JPL/M2020 |
+| `rad-measurement.geojson` | The Curiosity RAD surface dose measurement, as a map point | Hassler et al. 2014, NASA/JPL-Caltech/SwRI |
 | `mars-nomenclature.geojson` | IAU feature names | [Murray Lab](https://murray-lab.caltech.edu/CTX/V01/SceneView/Features/mars-nomenclature.geojson), IAU WGPSN |
 | `MurrayLab_CTX_V01_Quad-Map.geojson` | The 3,960 CTX mosaic tiles (4°×4°), each with a link to its download page | [Murray Lab](https://murray-lab.caltech.edu/CTX/V01/SceneView/Features/MurrayLab_CTX_V01_Quad-Map.geojson) |
 
@@ -94,6 +122,7 @@ tiles can be downloaded one at a time from https://murray-lab.caltech.edu/CTX/ (
 - Thermal inertia: NASA/MGS/TES; Putzig & Mellon (2007), Icarus 191, 68–94
 - Buried ice: Subsurface Water Ice Mapping (SWIM) project, PSI/NASA/JPL; Morgan & Putzig et al. (2025)
 - Polar surface ice: Tanaka et al. (2014), Geologic Map of Mars, USGS SIM 3292
+- Radiation: NASA/JPL-Caltech/SwRI (MSL RAD), NASA/JPL/JSC (Odyssey MARIE)
 
 ## GIS reference (every layer must match this)
 
