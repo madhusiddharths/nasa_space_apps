@@ -217,15 +217,16 @@
         ]),
       }));
 
-      map.add(new TileLayer({
+      // ---- Data layers: the coloured maps. Only one shows at a time (see "The layer stack"
+      // below). Ours are drawn by server.py; each Python module's docstring describes its data. ----
+
+      // Coloured elevation, streamed: Esri's relief-shaded picture of the same 200 m model we hold.
+      const molaLayer = new TileLayer({
         url: "https://astro.arcgis.com/arcgis/rest/services/OnMars/MColorDEM/MapServer",
         copyright: "USGS Astrogeology Science Center, NASA, JPL, ESA, DLR, Esri",
-        title: "MOLA Topography (NASA/JPL/GSFC)",
+        title: "Topography (MOLA coloured elevation)",
         visible: false,
-      }));
-
-      // ---- Our layers, drawn by server.py. Each Python module's docstring describes its
-      // data. Added in this order so the contour lines stay on top of the coloured overlays. ----
+      });
 
       // Ground firmness (firmness.py): thermal inertia, 3 km/px, coloured by surface class.
       const firmnessLayer = serverTiles("firmness", 8, {
@@ -242,10 +243,19 @@
       });
 
       // Contour lines (contours.py): the interval tightens with zoom (2000 m down to 50 m);
-      // bold lines carry their elevation.
-      const contourLayer = serverTiles("contours", 13, {
+      // bold lines carry their elevation. `style` is one of the line styles in contours.py;
+      // it is set from what is showing underneath (contourStyle, below).
+      const ContourTiles = ServerTiles.createSubclass({
+        properties: { style: "blue" },
+        getTileUrl(level, row, col) { return `/contours/${level}/${row}/${col}.png?style=${this.style}`; },
+      });
+      const contourLayer = new ContourTiles({
         title: "Contour Lines (elevation in m)",
         copyright: "Contours: derived from HRSC+MOLA DEM",
+        spatialReference: { wkid: MARS_WKID },
+        fullExtent: MARS_EXTENT,
+        tileInfo: marsTileInfo(13),
+        visible: false,
       });
 
       // Radiation (radiation.py): modelled dose rate and terrain shelter, Gale crater only.
@@ -282,11 +292,6 @@
         layers: [radDose, radShelter, radShelters, radMeasured],
       });
 
-      // ---- New layers go here: build with serverTiles() or GeoJSONLayer and add to this list.
-      // They appear in the layer list automatically. Contour lines and the route are moved
-      // above everything else further down, so a new layer never covers them. ----
-      map.addMany([firmnessLayer, iceLayer, contourLayer, radiationGroup]);
-
       // ---- Layout: the rail and the docked panels (web/layout.js). Each feature below puts
       // its panel into dock.panel(mode), or into a titled section from dock.slot(mode, heading). ----
       const dock = addDock("route");
@@ -296,6 +301,54 @@
       window.marsTemperature = addTemperatureLayer(map, view, {
         BaseTileLayer, container: dock.panel("temperature"), tileInfo: marsTileInfo(9), fullExtent: MARS_EXTENT,
       });
+      const temperatureLayer = window.marsTemperature.layer;
+      map.remove(temperatureLayer);               // it joins the data layers below
+
+      // ---- The layer stack, bottom to top:
+      //   1. the CTX imagery                       on or off
+      //   2. ONE data layer, or none               switching one on switches the others off,
+      //                                            so colours never mix and fewer tiles are drawn
+      //   3. the contour lines                     on or off, coloured to stand out from 1 and 2
+      //   then the marker and outline layers (traverses, names, craters), and the route on top.
+      // A new coloured map goes into DATA_LAYERS: it then gets the one-at-a-time rule, and its
+      // place under the contour lines, automatically. Say in CONTOUR_STYLE which line style
+      // reads best over it. The list is top to bottom as the layer list shows it. ----
+      const DATA_LAYERS = [temperatureLayer, radiationGroup, iceLayer, molaLayer, firmnessLayer];
+      const dataGroup = new GroupLayer({ title: "Data layer (one at a time)", layers: [...DATA_LAYERS].reverse() });
+      // One at a time. (The group's own "exclusive" mode is not used: it always keeps one
+      // layer on, and here none must be possible too.)
+      DATA_LAYERS.forEach((layer) => layer.watch("visible", (visible) => {
+        if (visible) DATA_LAYERS.forEach((other) => { if (other !== layer) other.visible = false; });
+      }));
+      const ctxLayer = map.layers.getItemAt(0);
+      map.addMany([dataGroup, contourLayer]);
+      map.reorder(dataGroup, 1);                  // straight above the imagery
+      map.reorder(contourLayer, 2);               // straight above the data layer
+
+      // The data layer that is showing, or null.
+      const shownDataLayer = () => (dataGroup.visible && DATA_LAYERS.find((layer) => layer.visible)) || null;
+
+      // Contour line style (contours.py) by what is under the lines: "light" lines over the
+      // dark palettes and over the imagery, "dark" lines over the light palettes, and the
+      // holographic blue over bare ground, when the imagery and every data layer are off.
+      const CONTOUR_STYLE = [
+        [temperatureLayer, "light"], [radiationGroup, "light"],
+        [iceLayer, "dark"], [molaLayer, "dark"], [firmnessLayer, "dark"],
+      ];
+      const contourStyle = () => {
+        const data = shownDataLayer();
+        if (!data) return ctxLayer.visible ? "light" : "blue";
+        const entry = CONTOUR_STYLE.find(([layer]) => layer === data);
+        return entry ? entry[1] : "light";
+      };
+      const restyleContours = () => {
+        const style = contourStyle();
+        if (style === contourLayer.style) return;
+        contourLayer.style = style;
+        contourLayer.refresh();                   // fetch the tiles again in the new style
+      };
+      [ctxLayer, dataGroup, ...DATA_LAYERS].forEach((layer) => layer.watch("visible", restyleContours));
+      restyleContours();
 
       // ---- Esri widgets: map controls bottom-right on the map, the rest inside the dock ----
       view.ui.move(["zoom", "compass", "navigation-toggle"], "bottom-right");   // before emptying the corner they start in
@@ -319,15 +372,15 @@
         selectedFormat: () => { const c = ccWidget.conversions.getItemAt(0); return c && c.format && c.format.name; },
       });
 
-      // Drawing order, top down: the route, then the contour lines, then every other layer.
-      // Layers later in map.layers draw on top, so these two go last, whatever was added before.
-      map.reorder(contourLayer, map.layers.length - 1);
+      // The route draws above everything. Layers later in map.layers draw on top, so it goes last.
       map.reorder(window.marsRouting.group, map.layers.length - 1);
 
-      // ---- Legends: stacked top-right, each shown only while its layer is on ----
+      // ---- Legends: top-right, each shown only while its data layer is the one showing ----
       const addLegend = (legend, layer) => {
-        legend.hidden = !layer.visible;
-        layer.watch("visible", (visible) => { legend.hidden = !visible; });
+        const update = () => { legend.hidden = !(layer.visible && dataGroup.visible); };
+        update();
+        layer.watch("visible", update);
+        dataGroup.watch("visible", update);
         view.ui.add(legend, "top-right");
       };
 
@@ -345,6 +398,22 @@
       classLegend(iceLayer, "/ice/legend", "<b>Water ice</b><br>Depth to the shallowest ice, 3 km resolution",
         "<br>No colour: no ice found, or not mapped (60° to the polar ice)");
 
+      // Topography legend. The service publishes none, so the colours were read back off the
+      // map against our elevation data (scripts/derive_mola_legend.py prints this list):
+      // [elevation in metres, colour of flat ground at that elevation].
+      const MOLA_RAMP = [[-7500, "#601d8d"], [-6500, "#4e1d9a"], [-5500, "#212da9"], [-4500, "#1e4daf"], [-3500, "#1e79a3"], [-2500, "#28aa53"], [-1500, "#4eab1f"], [-500, "#90b620"], [500, "#bb9d2b"], [1500, "#b97d33"], [2500, "#b06435"], [3500, "#a34936"], [4500, "#97453d"], [5500, "#86554b"], [6500, "#825e54"], [7500, "#86645a"], [8500, "#896960"], [9500, "#a08078"], [10500, "#a48880"], [16500, "#b9b4b3"]];
+      const MOLA_LEGEND_M = [-8000, 12000];       // the ramp's ends; higher ground takes the last colour
+      const molaLegend = document.createElement("div");
+      molaLegend.className = "legend";
+      const molaStops = MOLA_RAMP.filter(([m]) => m <= MOLA_LEGEND_M[1])
+        .map(([m, colour]) => `${colour} ${((m - MOLA_LEGEND_M[0]) / (MOLA_LEGEND_M[1] - MOLA_LEGEND_M[0]) * 100).toFixed(1)}%`);
+      molaLegend.innerHTML = `<b>Topography</b><br>Elevation above the Mars datum, km
+        <div class="ramp" style="background: linear-gradient(90deg, ${molaStops.join(", ")})"></div>
+        <div class="ticks"><span>&minus;8</span><span>&minus;3</span><span>+2</span><span>+7</span><span>&ge; +12</span></div>
+        <div class="note">Colours are shaded by the relief, so slopes look darker or lighter than
+          the scale. Scale read from the map, approximate. 200 m elevation model (MOLA + HRSC).</div>`;
+      addLegend(molaLegend, molaLayer);
+
       // Radiation legend (in the page above): one colour ramp per visible tile layer,
       // and a map click reads the dose at that spot.
       addLegend(document.getElementById("radiationLegend"), radiationGroup);
@@ -356,7 +425,7 @@
       rampLegend("radDoseLegend", radDose);
       rampLegend("radShelterLegend", radShelter);
       view.on("click", (event) => {
-        const where = radiationGroup.visible && clickedGroundPoint(event);
+        const where = shownDataLayer() === radiationGroup && clickedGroundPoint(event);
         if (!where) return;
         const { longitude: lon, latitude: lat } = where;
         const out = document.getElementById("radPoint");

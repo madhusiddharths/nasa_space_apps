@@ -129,18 +129,34 @@ Fonts load from Google Fonts in `index.html`, with Segoe UI and the system font 
 - **Markers are diamonds** that float above the ground on a thin stem, with a small dot where
   the stem touches down (`addMarker` in `routing.js`). Use this for any new point of interest
   tied to a route.
-- **Contour lines** are holographic blue `rgb(63, 182, 224)` with bright labels on a dark
-  edge (`contours.py`).
+- **Contour lines** take their colour from what is under them, so they always stand out
+  (`STYLES` in `contours.py`, chosen by `contourStyle` in `index.html`):
+  - holographic blue `rgb(63, 182, 224)` over bare dark ground, when the imagery and every
+    data layer are off;
+  - bright (`--holo-bright`) with a thin dark edge over the imagery and over data layers
+    with dark colours (temperature, radiation);
+  - dark (`--holo-bg-solid`) with a faint bright edge over data layers with light colours
+    (water ice, topography, ground firmness).
+
+  Labels follow the line: bright on a dark edge, or dark on a bright edge.
 - **Bare ground is dark** (`surfaceColor` in `index.html`), so with the imagery switched off
   the overlays read as a holographic terrain model.
-- **Drawing order, top down:** route, then contour lines, then every other layer. This is
-  enforced at the end of the layer setup in `index.html`; a new layer added to the list there
-  automatically stays below both.
+- **The layer stack, top down:** the route; marker and outline layers (traverses, feature
+  names, craters); the contour lines; ONE data layer; the CTX imagery. The data layers are
+  the coloured maps (temperature, radiation, water ice, topography, ground firmness).
+  Switching one on switches the others off, so their colours never mix; none at all is
+  allowed. Contours and imagery are each simply on or off. This is set up under "The layer
+  stack" in `index.html`.
 
 ## Adding things
 
-- **A new layer:** build it with `serverTiles()` or `GeoJSONLayer` and add it to the list
-  marked "New layers go here" in `index.html`. Give it a legend with the `legend` class.
+- **A new data layer** (a coloured map): build it with `serverTiles()` and add it to
+  `DATA_LAYERS` in `index.html`. That gives it the one-at-a-time rule and its place under
+  the contour lines. Add it to `CONTOUR_STYLE` too, saying whether light or dark contour
+  lines read best over its colours. Give it a legend with the `legend` class, added with
+  `addLegend` so it shows only while the layer does.
+- **A new marker or outline layer:** build it with `GeoJSONLayer` and add it to the map; it
+  draws above the contour lines.
 - **A new panel:** build the HTML in its own `web/*.js` file, append it to the dock element
   it is given (see Layout), give it an id, and add its styles as a new section in
   `theme.css` using the tokens and the components above. Copy the structure of `#routePanel`.

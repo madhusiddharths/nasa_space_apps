@@ -206,7 +206,8 @@ function addTemperatureLayer(map, view, { BaseTileLayer, container, tileInfo, fu
   }
 
   view.on("click", (event) => {
-    const where = layer.visible && clickedGroundPoint(event);   // from picking.js
+    // Only while this layer is the one showing (its group can be switched off as a whole).
+    const where = layer.visible && (!layer.parent || layer.parent.visible !== false) && clickedGroundPoint(event);   // from picking.js
     if (where) readPoint(where.longitude, where.latitude);
   });
 
