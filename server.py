@@ -2,6 +2,7 @@
 
 Run:  .venv/bin/uvicorn server:app --port 8000 --reload
 """
+from functools import lru_cache
 from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException, Response
@@ -19,6 +20,17 @@ import tiles
 
 app = FastAPI()
 
+# Finished tiles are kept in memory, so a place that several visitors look at is drawn once.
+# Each cache holds its layer's most recently used tiles; a tile is 1 to 400 KB, so all of
+# them full come to about 300 MB. Every argument that changes the picture is part of the key.
+TILES_KEPT = 200
+elevation_tile_bytes = lru_cache(TILES_KEPT)(lambda level, row, col: elevation.tile(level, row, col).tobytes())
+contour_png = lru_cache(TILES_KEPT)(contours.tile_png)
+firmness_png = lru_cache(TILES_KEPT)(firmness.tile_png)
+temperature_png = lru_cache(TILES_KEPT)(temperature.tile_png)
+ice_png = lru_cache(TILES_KEPT)(ice.tile_png)
+radiation_png = lru_cache(2 * TILES_KEPT)(radiation.tile_png)        # two kinds of tile
+
 
 def _png(data):
     return Response(data, media_type="image/png", headers=tiles.CACHE_HEADERS)
@@ -35,7 +47,7 @@ def tiles_version():
 
 @app.get("/elevation/{level}/{row}/{col}")
 def elevation_tile(level: int, row: int, col: int):
-    return Response(elevation.tile(level, row, col).tobytes(), media_type="application/octet-stream",
+    return Response(elevation_tile_bytes(level, row, col), media_type="application/octet-stream",
                     headers=tiles.CACHE_HEADERS)
 
 
@@ -43,14 +55,14 @@ def elevation_tile(level: int, row: int, col: int):
 def contour_tile(level: int, row: int, col: int, style: str = "blue"):
     if style not in contours.STYLES:
         raise HTTPException(404, f"style must be one of {', '.join(contours.STYLES)}")
-    return _png(contours.tile_png(level, row, col, style))
+    return _png(contour_png(level, row, col, style))
 
 
 # ---- Ground firmness (firmness.py) ----
 
 @app.get("/firmness/{level}/{row}/{col}.png")
 def firmness_tile(level: int, row: int, col: int):
-    return _png(firmness.tile_png(level, row, col))
+    return _png(firmness_png(level, row, col))
 
 
 @app.get("/firmness/legend")
@@ -67,8 +79,7 @@ def _stat(stat: str):
 @app.get("/temperature/{level}/{row}/{col}.png")
 def temperature_tile(level: int, row: int, col: int, ls: float = 0, local_time: float = 14, stat: str = "",
                      low: float | None = None, high: float | None = None):
-    png = temperature.tile_png(level, row, col, ls=ls, local_time=local_time, stat=_stat(stat), low=low, high=high)
-    return _png(png)
+    return _png(temperature_png(level, row, col, ls=ls, local_time=local_time, stat=_stat(stat), low=low, high=high))
 
 
 @app.get("/temperature/range")
@@ -89,7 +100,7 @@ def temperature_point(lon: float, lat: float, ls: float = 0):
 
 @app.get("/ice/{level}/{row}/{col}.png")
 def ice_tile(level: int, row: int, col: int):
-    return _png(ice.tile_png(level, row, col))
+    return _png(ice_png(level, row, col))
 
 
 @app.get("/ice/legend")
@@ -103,7 +114,7 @@ def ice_legend():
 def radiation_tile(kind: str, level: int, row: int, col: int):
     if kind not in ("dose", "shelter"):
         raise HTTPException(404, "kind must be 'dose' or 'shelter'")
-    return _png(radiation.tile_png(kind, level, row, col))
+    return _png(radiation_png(kind, level, row, col))
 
 
 @app.get("/radiation/point")
