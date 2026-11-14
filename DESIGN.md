@@ -19,8 +19,8 @@ lines of light.
    top of `theme.css`. If you need a new one, add it there with a comment; do not invent a
    one-off value.
 4. **Colours drawn on the map come from `HOLO` in `web/routing.js`.** The map cannot read
-   the stylesheet, so `HOLO` mirrors the tokens. Keep the two in step. Map tiles drawn by
-   Python (for example `contours.py`) hold their own colour constants, copied from the tokens.
+   the stylesheet, so `HOLO` mirrors the tokens. Keep the two in step. The contour lines are
+   coloured in `web/index.html` (`CONTOUR_STYLES`), which holds its own copies of the tokens.
 5. **Do not restyle the map imagery or the data layers' colour scales.** Their colours carry
    meaning and have legends. The look applies to the interface and to the route and contour
    lines, not to the science layers.
@@ -130,7 +130,8 @@ Fonts load from Google Fonts in `index.html`, with Segoe UI and the system font 
   the stem touches down (`addMarker` in `routing.js`). Use this for any new point of interest
   tied to a route.
 - **Contour lines** take their colour from what is under them, so they always stand out
-  (`STYLES` in `contours.py`, chosen by `contourStyle` in `index.html`):
+  (`CONTOUR_STYLES` in `index.html`, chosen by `contourStyle` there; `contours.py` sends the
+  lines without colour and the page colours them, so a change of style is instant):
   - holographic blue `rgb(63, 182, 224)` over bare dark ground, when the imagery and every
     data layer are off;
   - bright (`--holo-bright`) with a thin dark edge over the imagery and over data layers

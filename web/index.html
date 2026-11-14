@@ -245,13 +245,66 @@
       });
 
       // Contour lines (contours.py): the interval tightens with zoom (2000 m down to 50 m);
-      // bold lines carry their elevation. `style` is one of the line styles in contours.py;
-      // it is set from what is showing underneath (contourStyle, below).
+      // bold lines carry their elevation. The server sends each tile as a mask with no
+      // colours (see contours.py); it is coloured here, in the style that reads best over
+      // what is showing underneath (contourStyle, below). Switching style colours the same
+      // masks again, taken from the browser's cache, so nothing is drawn again on the server.
+      // The colours are copied from the tokens in theme.css (see DESIGN.md).
+      const BLUE = [63, 182, 224];        // holographic blue
+      const BRIGHT = [233, 251, 255];     // --holo-bright
+      const DARK = [5, 11, 17];           // --holo-bg-solid
+      // The bright edge of "dark" lines is kept faint: a stronger one outweighs the 1 px line
+      // between its two sides, and the line then reads as light. Opacities are 0-255.
+      const CONTOUR_STYLES = {
+        blue: { line: BLUE, thinOpacity: 150, edge: null, edgeOpacity: 0, label: BRIGHT, labelEdge: DARK },
+        light: { line: BRIGHT, thinOpacity: 215, edge: DARK, edgeOpacity: 130, label: BRIGHT, labelEdge: DARK },
+        dark: { line: DARK, thinOpacity: 235, edge: BRIGHT, edgeOpacity: 60, label: DARK, labelEdge: BRIGHT },
+      };
+      const LABEL_EDGE_OPACITY = 235;
+      const LINE_BOLD = 255, LINE_THIN = 128, LINE_EDGE = 64;   // the mask's blue channel, as in contours.py
+
+      // A canvas with one mask tile coloured in one of CONTOUR_STYLES. Mask channels: red =
+      // cover of the label's edge, green = cover of the label's digits, blue = kind of line.
+      const colourContours = (mask, style) => {
+        const { line, thinOpacity, edge, edgeOpacity, label, labelEdge } = CONTOUR_STYLES[style];
+        const canvas = document.createElement("canvas");
+        canvas.width = mask.width;
+        canvas.height = mask.height;
+        const context = canvas.getContext("2d");
+        context.drawImage(mask, 0, 0);
+        const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+        const data = pixels.data;
+        // a over b by `cover` (0-255), rounded as the server's drawing library rounds.
+        const mix = (cover, a, b) => { const t = a * (255 - cover) + b * cover + 128; return ((t >> 8) + t) >> 8; };
+        let r, g, b, a;
+        const paint = (ink, opacity, cover) => {
+          if (!cover) return;
+          const c = a ? cover : 255;              // onto a clear pixel the ink is not mixed with what was there
+          r = mix(c, r, ink[0]); g = mix(c, g, ink[1]); b = mix(c, b, ink[2]);
+          a = mix(cover, a, opacity);
+        };
+        for (let i = 0; i < data.length; i += 4) {
+          const edgeCover = data[i], textCover = data[i + 1], kind = data[i + 2];
+          [r, g, b] = kind === LINE_EDGE && edge ? edge : line;
+          a = kind === LINE_BOLD ? 255 : kind === LINE_THIN ? thinOpacity : kind === LINE_EDGE ? edgeOpacity : 0;
+          paint(labelEdge, LABEL_EDGE_OPACITY, edgeCover);
+          paint(label, 255, textCover);
+          data[i] = r; data[i + 1] = g; data[i + 2] = b; data[i + 3] = a;
+        }
+        context.putImageData(pixels, 0, 0);
+        return canvas;
+      };
       const ContourTiles = ServerTiles.createSubclass({
         properties: { style: "blue" },
-        getTileUrl(level, row, col) { return `/contours/${level}/${row}/${col}.png?style=${this.style}&v=${TILES_VERSION}`; },
+        fetchTile(level, row, col, options) {
+          return fetch(this.getTileUrl(level, row, col), { signal: options && options.signal })
+            .then((response) => response.blob())
+            .then((blob) => createImageBitmap(blob))
+            .then((mask) => colourContours(mask, this.style));
+        },
       });
       const contourLayer = new ContourTiles({
+        path: "contours",
         title: "Contour Lines (elevation in m)",
         copyright: "Contours: derived from HRSC+MOLA DEM",
         spatialReference: { wkid: MARS_WKID },
@@ -330,7 +383,7 @@
       // The data layer that is showing, or null.
       const shownDataLayer = () => (dataGroup.visible && DATA_LAYERS.find((layer) => layer.visible)) || null;
 
-      // Contour line style (contours.py) by what is under the lines: "light" lines over the
+      // Contour line style (CONTOUR_STYLES) by what is under the lines: "light" lines over the
       // dark palettes and over the imagery, "dark" lines over the light palettes, and the
       // holographic blue over bare ground, when the imagery and every data layer are off.
       const CONTOUR_STYLE = [
@@ -347,7 +400,7 @@
         const style = contourStyle();
         if (style === contourLayer.style) return;
         contourLayer.style = style;
-        contourLayer.refresh();                   // fetch the tiles again in the new style
+        contourLayer.refresh();                   // colour the tiles again, in the new style
       };
       [ctxLayer, dataGroup, ...DATA_LAYERS].forEach((layer) => layer.watch("visible", restyleContours));
       restyleContours();

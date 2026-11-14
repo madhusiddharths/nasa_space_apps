@@ -52,10 +52,8 @@ def elevation_tile(level: int, row: int, col: int):
 
 
 @app.get("/contours/{level}/{row}/{col}.png")
-def contour_tile(level: int, row: int, col: int, style: str = "blue"):
-    if style not in contours.STYLES:
-        raise HTTPException(404, f"style must be one of {', '.join(contours.STYLES)}")
-    return _png(contour_png(level, row, col, style))
+def contour_tile(level: int, row: int, col: int):
+    return _png(contour_png(level, row, col))
 
 
 # ---- Ground firmness (firmness.py) ----

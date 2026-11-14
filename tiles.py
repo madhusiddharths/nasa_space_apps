@@ -34,7 +34,7 @@ def cell_centres(west, south, east, north, rows, cols):
 
 
 def png(rgba):
-    """PNG bytes for a (rows, cols, 4) uint8 RGBA array."""
+    """PNG bytes for a (rows, cols, 4) uint8 RGBA array, or (rows, cols, 3) for opaque RGB."""
     out = io.BytesIO()
     Image.fromarray(rgba).save(out, "PNG")
     return out.getvalue()

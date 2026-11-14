@@ -28,9 +28,7 @@ GALE = (137.4, -4.7)
 # name -> address of one tile; {t} is level/row/col.
 ENDPOINTS = {
     "elevation": "/elevation/{t}",
-    "contours blue": "/contours/{t}.png?style=blue",
-    "contours light": "/contours/{t}.png?style=light",
-    "contours dark": "/contours/{t}.png?style=dark",
+    "contours": "/contours/{t}.png",
     "firmness": "/firmness/{t}.png",
     "ice": "/ice/{t}.png",
     "radiation dose": "/radiation/tiles/dose/{t}.png",

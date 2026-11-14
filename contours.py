@@ -1,15 +1,20 @@
-"""Contour-line map tiles (transparent PNGs) drawn from the local elevation file.
+"""Contour-line map tiles drawn from the local elevation file.
 
 The contour interval tightens as you zoom in; every 5th line is an index contour, drawn
 bold and labelled with its elevation in metres.
 
-The lines come in three styles (STYLES), so they stay readable over whatever is under
-them. The viewer picks one from the layer that is showing (contourStyle in web/index.html):
-  blue    over bare dark ground, with no imagery and no data layer on
-  light   over the imagery and over data layers with dark colours
-  dark    over data layers with light colours
-"light" and "dark" lines carry a thin edge of the opposite tone, which keeps them visible
-where the ground under them happens to match the line.
+A tile carries no colours. It is a mask that says, for each pixel, how much of it is line,
+line edge, label text and label edge. The viewer colours it (CONTOUR_STYLES and
+colourContours in web/index.html) in one of three styles, so the lines stay readable over
+whatever is under them, and can switch style without asking the server again.
+
+The mask is an opaque RGB picture, one mask per colour channel:
+  red     label edge: how much of the pixel the 2 px outline around a label covers, 0-255
+  green   label text: how much of the pixel the label's digits cover, 0-255
+  blue    line: LINE_BOLD on an index contour, LINE_THIN on any other contour, LINE_EDGE on
+          the one pixel either side of a line, 0 elsewhere
+It is opaque because browsers multiply a pixel's colour by its transparency when they
+decode a picture, which would wipe the masks wherever the pixel is see-through.
 """
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
@@ -22,19 +27,7 @@ from tiles import TILE_PX
 
 MAX_LEVEL = 12  # 5 m/px on screen; the 200 m elevation data is smoothly upsampled here
 INDEX_EVERY = 5
-# Colours are copied from the tokens in web/theme.css (see DESIGN.md).
-BLUE = (63, 182, 224)         # holographic blue
-BRIGHT = (233, 251, 255)      # --holo-bright
-DARK = (5, 11, 17)            # --holo-bg-solid
-# style: line colour, opacity of thin lines (0-255), edge colour or None, edge opacity,
-#        label colour, label edge colour.
-# The bright edge of "dark" lines is kept faint: a stronger one outweighs the 1 px line
-# between its two sides, and the line then reads as light.
-STYLES = {
-    "blue": (BLUE, 150, None, 0, BRIGHT, DARK),
-    "light": (BRIGHT, 215, DARK, 130, BRIGHT, DARK),
-    "dark": (DARK, 235, BRIGHT, 60, DARK, BRIGHT),
-}
+LINE_BOLD, LINE_THIN, LINE_EDGE = 255, 128, 64   # values of the blue channel; colourContours reads them
 LABEL_FONT = ImageFont.load_default(size=13)
 
 
@@ -53,9 +46,8 @@ def _crossings(z, step):
     return (here != right) | (here != below), crossed
 
 
-def tile_png(level, row, col, style="blue"):
-    """One viewer tile of contour lines in one of STYLES, transparent between them."""
-    line_rgb, line_alpha, edge_rgb, edge_alpha, label_rgb, label_edge = STYLES[style]
+def tile_png(level, row, col):
+    """One viewer tile of contour lines, as the mask described at the top of this file."""
     west, south, east, north = tiles.bounds(level, row, col)
     px = (east - west) / TILE_PX
     # One extra pixel right and below so lines join across tile edges.
@@ -72,14 +64,11 @@ def tile_png(level, row, col, style="blue"):
     bold[1:, :] |= index[:-1, :]
     bold[:, 1:] |= index[:, :-1]
 
-    rgba = np.zeros((TILE_PX, TILE_PX, 4), np.uint8)
-    rgba[..., :3] = line_rgb
-    rgba[..., 3] = np.where(bold, 255, np.where(lines, line_alpha, 0))
-    if edge_rgb:
-        # One pixel of the opposite tone on each side of every line.
-        drawn = lines | bold
-        edge = ndimage.binary_dilation(drawn, structure=np.ones((3, 3), bool)) & ~drawn
-        rgba[edge] = edge_rgb + (edge_alpha,)
+    # One pixel of edge on each side of every line.
+    drawn = lines | bold
+    edge = ndimage.binary_dilation(drawn, structure=np.ones((3, 3), bool)) & ~drawn
+    mask = np.zeros((TILE_PX, TILE_PX, 3), np.uint8)
+    mask[..., 2] = np.where(bold, LINE_BOLD, np.where(lines, LINE_THIN, np.where(edge, LINE_EDGE, 0)))
 
     # Label up to two index contours, each at its pixel nearest the tile centre.
     # Labels stay inside a margin so they are never cut by a tile edge.
@@ -88,11 +77,13 @@ def tile_png(level, row, col, style="blue"):
         ys, xs = ys + 20, xs + 50
         values = index_value[ys, xs]
         distance = (ys - TILE_PX / 2) ** 2 + (xs - TILE_PX / 2) ** 2
-        image = Image.fromarray(rgba)
+        # Drawn in red (the outline) then red + green (the digits), which leaves the outline's
+        # cover in the red channel and the digits' cover in the green one.
+        image = Image.new("RGB", (TILE_PX, TILE_PX))
         draw = ImageDraw.Draw(image)
         for value in sorted(np.unique(values), key=lambda v: distance[values == v].min())[:2]:
             i = np.argmin(np.where(values == value, distance, np.inf))
             draw.text((xs[i], ys[i]), f"{int(value)}", font=LABEL_FONT, anchor="mm",
-                      fill=label_rgb + (255,), stroke_width=2, stroke_fill=label_edge + (235,))
-        rgba = np.array(image)
-    return tiles.png(rgba)
+                      fill=(255, 255, 0), stroke_width=2, stroke_fill=(255, 0, 0))
+        mask[..., :2] = np.array(image)[..., :2]
+    return tiles.png(mask)
