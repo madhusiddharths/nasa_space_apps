@@ -5,34 +5,19 @@
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
   <title>Interplanetary Survival Guide: Mars</title>
   <link rel="stylesheet" href="https://js.arcgis.com/4.26/esri/themes/dark/main.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500&family=Barlow+Condensed:wght@400;500&display=swap" />
+  <!-- The look of the viewer: tokens, Esri widget restyling and our panels. Loaded after Esri's theme. -->
+  <link rel="stylesheet" href="theme.css" />
   <script src="https://js.arcgis.com/4.26/"></script>
   <script src="picking.js"></script>
   <script src="temperature.js"></script>
   <script src="routing.js"></script>
-  <style>
-    html, body, #viewDiv { padding: 0; margin: 0; height: 100%; width: 100%; background: #000; }
-    .esri-coordinate-conversion__conversions-view { margin: 0; }
-    #optionsDiv { position: absolute; bottom: 30px; left: 15px; right: 15px; z-index: 1; text-align: center; }
-    .buttonsContainer { max-width: 800px; margin: 0 auto; }
-    .buttonsContainer button {
-      background: #242424; padding: 6px 4px; border: none; font-size: 1rem; margin: 3px;
-      color: #d1d1d1; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); cursor: pointer;
-    }
-    .buttonsContainer button:hover { color: white; }
-    /* Layer legends: stacked top-right, each shown only while its layer is on. */
-    .legend { background: #242424; color: #d1d1d1; padding: 8px 10px; font-size: 12px; line-height: 1.5; width: 250px; }
-    .legend b { color: white; }
-    .legend i { display: inline-block; width: 12px; height: 12px; margin-right: 6px; vertical-align: -2px; }
-    .legend .ramp { height: 10px; margin: 4px 0 2px; }
-    .legend .ticks { display: flex; justify-content: space-between; font-size: 11px; color: #b0b0b0; }
-    .legend .note { font-size: 11px; color: #b0b0b0; margin-top: 6px; }
-    .legend table { width: 100%; border-collapse: collapse; }
-    .legend td { padding: 1px 0; }
-    .legend td:last-child { text-align: right; color: white; font-variant-numeric: tabular-nums; }
-  </style>
 </head>
 <body>
   <div id="viewDiv"></div>
+  <div id="appTitle">Interplanetary Survival Guide<span>Mars</span></div>
   <!-- Radiation legend. The scale ends mirror DOSE_SCALE and SHELTER_SCALE in radiation.py. -->
   <div id="radiationLegend" class="legend" hidden>
     <b>Radiation (Gale crater)</b>
@@ -117,7 +102,9 @@
         tileInfo: marsTileInfo(8),
       });
 
-      const map = new Map({ ground: { layers: [marsElevation] }, layers: [] });
+      // surfaceColor is what the ground looks like where no imagery layer is switched on:
+      // dark, so contour lines and the other overlays read as a holographic terrain model.
+      const map = new Map({ ground: { layers: [marsElevation], surfaceColor: "#06101a" }, layers: [] });
 
       const view = new SceneView({
         map,
@@ -316,7 +303,7 @@
       // Astronaut route planner: safest and quickest trip between two points, by rover and on foot
       // (web/routing.js). Its search boxes read coordinates in the format chosen in the coordinate widget.
       window.marsRouting = addRouting(map, view, {
-        GraphicsLayer, Graphic, Expand, coordinateFormatter,
+        GraphicsLayer, GroupLayer, Graphic, Expand, coordinateFormatter,
         selectedFormat: () => { const c = ccWidget.conversions.getItemAt(0); return c && c.format && c.format.name; },
       });
 

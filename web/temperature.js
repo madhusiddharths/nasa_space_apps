@@ -59,29 +59,7 @@ function addTemperatureLayer(map, view, { BaseTileLayer, Expand, tileInfo, fullE
     ti < 150 ? "loose dust" : ti < 250 ? "fine sand" : ti < 400 ? "coarse sand, some crust" :
     ti < 700 ? "gravel and rocky ground" : "rock and bedrock";
 
-  // ---- Panel ----
-  const style = document.createElement("style");
-  style.textContent = `
-    #tempPanel { width: 290px; padding: 12px; font-size: 13px; line-height: 1.4; max-height: calc(100vh - 150px); overflow-y: auto; box-sizing: border-box; }
-    #tempPanel h3 { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
-    #tempPanel label { display: block; margin-top: 10px; }
-    #tempPanel label span { float: right; opacity: 0.75; }
-    #tempPanel input[type=range] { width: 100%; margin: 2px 0 0; }
-    #tempPanel .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 10px; }
-    #tempPanel .modes button { padding: 5px 2px; border: 1px solid #555; background: none; color: inherit; cursor: pointer; border-radius: 3px; font: inherit; }
-    #tempPanel .modes button[aria-pressed=true] { background: #d1d1d1; color: #242424; border-color: #d1d1d1; }
-    #tempPanel .ramp { height: 12px; margin-top: 12px; border-radius: 2px; background: linear-gradient(to right, ${RAMP.join(",")}); }
-    #tempPanel .ticks { display: flex; justify-content: space-between; font-size: 11px; opacity: 0.75; }
-    #tempPanel .readout { margin-top: 12px; padding-top: 10px; border-top: 1px solid #444; }
-    #tempPanel .readout table { width: 100%; border-collapse: collapse; }
-    #tempPanel .readout td { padding: 1px 0; }
-    #tempPanel .readout td:last-child { text-align: right; }
-    #tempPanel .hint { opacity: 0.7; }
-    #tempPanel svg { display: block; margin-top: 8px; width: 100%; height: auto; }
-    #tempPanel svg text { fill: currentColor; font-size: 10px; opacity: 0.7; }
-    #tempPanel .tip { min-height: 1.4em; font-size: 12px; }
-  `;
-  document.head.appendChild(style);
+  // ---- Panel (styled in theme.css) ----
 
   const panel = document.createElement("div");
   panel.id = "tempPanel";
@@ -97,7 +75,7 @@ function addTemperatureLayer(map, view, { BaseTileLayer, Expand, tileInfo, fullE
       ${Object.entries(MODES).map(([k, m]) => `<button data-stat="${k}">${m.label}</button>`).join("")}
     </div>
     <label>Opacity <input type="range" id="tempOpacity" min="0.1" max="1" step="0.05" value="${layer.opacity}"></label>
-    <div class="ramp"></div>
+    <div class="ramp" style="background: linear-gradient(to right, ${RAMP.join(",")})"></div>
     <div class="ticks" id="tempTicks"></div>
     <div class="modes" style="margin-top:8px">
       <button id="tempFit" title="Stretch the colours over the temperatures in the area you are looking at">Fit colours to view</button>
@@ -173,7 +151,7 @@ function addTemperatureLayer(map, view, { BaseTileLayer, Expand, tileInfo, fullE
       ${grid}${hours}
       <path d="${path}" fill="none" stroke="#f48849" stroke-width="2" stroke-linejoin="round"/>
       <line id="tempNow" y1="${T}" y2="${H - B}" stroke="currentColor" stroke-opacity="0.6" stroke-dasharray="3 3"/>
-      <circle id="tempDot" r="4" fill="#f48849" stroke="#242424" stroke-width="2"/>
+      <circle id="tempDot" r="4" fill="#f48849" stroke="#050b11" stroke-width="2"/>
       <rect id="tempHit" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent"/>
     </svg><div class="tip" id="tempTip"></div>`;
   }
