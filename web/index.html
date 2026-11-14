@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="https://js.arcgis.com/4.26/esri/themes/dark/main.css" />
   <script src="https://js.arcgis.com/4.26/"></script>
   <script src="temperature.js"></script>
+  <script src="routing.js"></script>
   <style>
     html, body, #viewDiv { padding: 0; margin: 0; height: 100%; width: 100%; background: #000; }
     .esri-coordinate-conversion__conversions-view { margin: 0; }
@@ -64,10 +65,10 @@
       "esri/Map", "esri/Camera", "esri/views/SceneView",
       "esri/layers/BaseElevationLayer", "esri/layers/BaseTileLayer", "esri/layers/support/TileInfo",
       "esri/layers/TileLayer", "esri/layers/FeatureLayer",
-      "esri/layers/GeoJSONLayer", "esri/layers/GroupLayer",
+      "esri/layers/GeoJSONLayer", "esri/layers/GroupLayer", "esri/layers/GraphicsLayer", "esri/Graphic",
       "esri/widgets/CoordinateConversion", "esri/widgets/LayerList", "esri/widgets/AreaMeasurement3D",
       "esri/widgets/Bookmarks", "esri/widgets/ElevationProfile", "esri/widgets/Expand",
-    ], (Map, Camera, SceneView, BaseElevationLayer, BaseTileLayer, TileInfo, TileLayer, FeatureLayer, GeoJSONLayer, GroupLayer,
+    ], (Map, Camera, SceneView, BaseElevationLayer, BaseTileLayer, TileInfo, TileLayer, FeatureLayer, GeoJSONLayer, GroupLayer, GraphicsLayer, Graphic,
         CoordinateConversion, LayerList, AreaMeasurement3D, Bookmarks, ElevationProfile, Expand) => {
 
       // Tiling scheme of the CTX imagery, for layers served by server.py.
@@ -305,6 +306,9 @@
       view.ui.add(expand(new ElevationProfile({ view })), "top-left", 2);
       view.ui.add(expand(new LayerList({ view })), "top-left", 3);
       view.ui.add(expand(new Bookmarks({ view, editingEnabled: true })), "top-left", 4);
+
+      // Astronaut route planner: safest and quickest walk between two picked points (web/routing.js).
+      window.marsRouting = addRouting(map, view, { GraphicsLayer, Graphic, Expand });
 
       // ---- Legends: stacked top-right, each shown only while its layer is on ----
       const addLegend = (legend, layer) => {

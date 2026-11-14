@@ -34,7 +34,19 @@ question: what is the safest route across the surface for astronauts and rovers?
 
 Every layer can also be read in Python on a shared grid; see "Using the layers in Python".
 
-Planned: least-cost route finding across the layers.
+**Astronaut route planner.** Open "Astronaut route" (the directions button, top left), set a
+start A and a destination B up to 100 km apart, and the map draws two walks:
+
+- **Safest:** crosses as little hazardous ground as it can. If every possible route has to
+  cross some hazard, that stretch is tagged *unavoidable* and drawn thick with a white edge.
+- **Quickest:** the least walking time. It may cross Caution ground, but never Danger or
+  Extreme ground unless that is unavoidable.
+
+Each route lists distance, walking time, climb, steepest and coldest ground, radiation dose and
+its hazards. Hazards come from slope (Caution from 10°, Danger from 20°, Extreme from 30°),
+loose dust, and ground colder than −80 °C at the departure hour you choose.
+
+Planned: rover routing, and round trips.
 
 ## Setup
 
@@ -82,6 +94,8 @@ changes under `web/` only need a browser refresh.
 | `firmness.py` | Reads thermal inertia for a lon/lat box, classifies ground firmness, draws its map tiles |
 | `ice.py` | Combines polar surface ice and SWIM buried ice into depth classes, draws its map tiles |
 | `radiation.py` | Radiation dose rate, terrain shelter, dose along a route, map tiles |
+| `routing.py` | Astronaut routing: hazard levels from the layers, safest and quickest walk from A to B |
+| `web/routing.js` | The route planner panel and the route lines on the map |
 | `data/` | Large downloaded datasets (gitignored) |
 | `DATA_SOURCES.md` | Every dataset, download links, model assumptions, GIS conventions |
 
@@ -169,6 +183,33 @@ The same over HTTP: `GET /radiation/point?lon=..&lat=..` and `POST /radiation/ro
 `{"points": [[lon, lat], ...], "speed_kmh": 3, "stop_minutes": [...], "multiplier": 1, "budget_msv": 0.3}`.
 `multiplier` scales every dose rate for "what if a solar storm hits" scenarios; the response
 lists a warning for the leg or stop where the budget is crossed.
+
+## Routing
+
+```python
+import routing
+
+result = routing.plan((137.38, -4.72), (137.47, -4.80), ls=90, local_time=12)   # [lon, lat] each
+result["verdict"]                        # what no route can avoid, in words
+safest = result["routes"]["safest"]      # also "quickest"
+safest["line"], safest["minutes"], safest["hazards"]
+```
+
+The same over HTTP: `GET /routing/astronaut?from_lon=..&from_lat=..&to_lon=..&to_lat=..&ls=90&local_time=12`.
+
+How it decides, in short (the full account is the docstring of `routing.py`):
+
+- The area around A and B is cut into 200 m cells, each given a hazard level (Clear, Caution,
+  Danger, Extreme) from slope, ground firmness and temperature.
+- "Unavoidable" is proven, not guessed: if A and B are not connected through ground below some
+  level, every route crosses that level.
+- The safest route will walk up to 20 m further to stay off 1 m of Caution ground, and 400 m
+  for Danger. The quickest minimises time: 3 km/h on flat firm ground, slower on slopes
+  (Tobler's hiking function) and soft ground.
+
+Every threshold, speed and penalty is a planning number chosen by the team, at the top of
+`routing.py`; none is a NASA limit. Slopes are averages over 200 m, so short cliffs and boulders
+are not seen, and "unavoidable" means within the searched area around A and B.
 
 ## Adding a layer
 
