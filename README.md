@@ -22,7 +22,10 @@ The base layer: the whole planet in 3D, modelled on the
 - Coordinate readout, area measurement, elevation profile, layer list, bookmarks
 - Python helpers to read elevation and compute slope for any area
 
-Planned: hazard layers on top of the base, then least-cost route finding across them.
+The radiation layer (Gale crater): modelled dose rate and terrain shelter, anchored to the
+Curiosity RAD measurement. See "Radiation layer" below.
+
+Planned: more hazard layers on top of the base, then least-cost route finding across them.
 
 ## Setup
 
@@ -57,6 +60,7 @@ Open http://localhost:8000.
 | `contours.py` | Draws contour-line map tiles from the elevation file |
 | `firmness.py` | Reads thermal inertia for a lon/lat box, classifies ground firmness, draws its map tiles |
 | `ice.py` | Combines polar surface ice and SWIM buried ice into depth classes, draws its map tiles |
+| `radiation.py` | Radiation dose rate, terrain shelter, dose along a route, map tiles |
 | `data/` | Large downloaded datasets (gitignored) |
 | `DATA_SOURCES.md` | Every dataset, download links, GIS conventions |
 
@@ -114,6 +118,37 @@ GeoJSON with lon/lat in degrees into `web/data/`:
 ```js
 map.add(new GeoJSONLayer({ url: "data/my-layer.geojson", title: "My layer" }));
 ```
+
+## Radiation layer
+
+Turn on "Radiation (Gale crater)" in the layer list. It has the dose rate overlay, the
+fraction of sky blocked by terrain, the best natural shelters, and the Curiosity RAD
+measurement. Click the map for the dose at that spot. It works without the 15 GB elevation
+download: the Gale window is fetched once and cached.
+
+Everything except the RAD marker is a modelled estimate; sources and assumptions are in
+[DATA_SOURCES.md](DATA_SOURCES.md).
+
+**For routing**, a dose-rate grid on any lon/lat box and shape (mSv per day):
+
+```python
+import radiation
+
+box = (136.5, -6.0, 139.0, -4.0)                    # (west, south, east, north)
+dose = radiation.dose_grid(*box, shape=(593, 741))  # NaN where there is no data
+```
+
+**For safety cards**, values at one stop, and dose along a walk:
+
+```python
+radiation.at_point(137.4417, -4.5895)
+radiation.route_dose([[137.44, -4.59], [137.40, -4.65]], speed_kmh=3, stop_minutes=[0, 60])
+```
+
+The same over HTTP: `GET /radiation/point?lon=..&lat=..` and `POST /radiation/route` with
+`{"points": [[lon, lat], ...], "speed_kmh": 3, "stop_minutes": [...], "multiplier": 1, "budget_msv": 0.3}`.
+`multiplier` scales every dose rate for "what if a solar storm hits" scenarios; the response
+lists a warning for the leg or stop where the budget is crossed.
 
 ## Credits
 
