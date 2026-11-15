@@ -10,7 +10,8 @@ question: what is the safest route across the surface for astronauts and rovers?
 [Murray Lab CTX viewer](https://murray-lab.caltech.edu/CTX/V01/SceneView/):
 
 - Global CTX imagery at 5 m per pixel, draped over 200 m terrain
-- Terrain read from our own copy of the NASA/USGS elevation data
+- 3D terrain from Esri's Mars elevation service: the NASA/USGS 200 m model, which we also hold
+  locally for the contours, the routes and the other layers
 - Contour lines drawn from our elevation data (interval 2000 m zoomed out to 50 m zoomed in,
   bold lines labelled in metres), coloured to stand out from whatever is under them
 - Colored elevation, with a legend
@@ -250,8 +251,10 @@ Every map tile is drawn in Python on request, so the work is in not drawing a ti
   tile of the layers that never change (firmness, water ice, radiation) into `data/tiles/`,
   laid out like the tile addresses. The server sends those files when they exist and draws
   the tile when they do not. Run it again after changing how one of those layers is drawn.
-- **Experiment: terrain from Esri.** Opening the page with `?terrain=hosted` takes the 3D
-  ground from Esri's public Mars elevation service instead of `server.py`. Off by default.
+- **The 3D ground comes from Esri.** The viewer takes its terrain from Esri's public Mars
+  elevation service (the same 200 m model), not from `server.py`. Opening the page with
+  `?terrain=local` uses `server.py`'s terrain tiles instead. Contours, routing and the other
+  layers still read our own elevation file.
 
 `python scripts/measure_tiles.py <label>` times every tile endpoint and records the response
 sizes, and prints all saved runs side by side. Run it before and after a change.

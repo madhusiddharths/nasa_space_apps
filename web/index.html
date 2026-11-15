@@ -94,9 +94,11 @@
         ...properties,
       });
 
-      // ---- Terrain: HRSC + MOLA blended DEM, 200 m/px, read from the local file
-      // by server.py (levels 0-7). A tile is 257 x 257 heights in whole metres, sent as
-      // 16-bit integers (the browser undoes the gzip compression itself). ----
+      // ---- Terrain: HRSC + MOLA blended DEM, 200 m/px. The 3D ground comes from Esri's public
+      // Mars elevation service (below), the one the Murray Lab viewer uses. This layer is the
+      // same model read from our local file by server.py (levels 0-7), kept for ?terrain=local:
+      // a tile is 257 x 257 heights in whole metres, sent as 16-bit integers (the browser
+      // undoes the gzip compression itself). ----
       const LocalElevationLayer = BaseElevationLayer.createSubclass({
         fetchTile(level, row, col, options) {
           return fetch(`/elevation/${level}/${row}/${col}?v=${TILES_VERSION}`, { signal: options && options.signal })
@@ -104,10 +106,10 @@
             .then((buf) => ({ values: Float32Array.from(new Int16Array(buf)), width: 257, height: 257, noDataValue: -32768 }));
         },
       });
-      // Experiment, off by default: with ?terrain=hosted in the page address the ground comes
-      // from Esri's public Mars elevation service instead (the same 200 m model, and the
-      // service the Murray Lab viewer uses), which takes the terrain load off server.py.
-      const hostedTerrain = new URLSearchParams(location.search).get("terrain") === "hosted";
+      // Esri's service is the default: it takes the terrain load off server.py. With
+      // ?terrain=local in the page address the ground comes from server.py instead (for
+      // working offline, or if the service is down).
+      const hostedTerrain = new URLSearchParams(location.search).get("terrain") !== "local";
       const marsElevation = hostedTerrain
         ? new ElevationLayer({
           url: "https://astro.arcgis.com/arcgis/rest/services/OnMars/MDEM200M/ImageServer",
@@ -139,8 +141,9 @@
         },
       });
 
-      // Clicks: the map engine leaves the clicked location empty over our terrain, so click
-      // handlers get it from clickedGroundPoint(event) instead (web/picking.js).
+      // Clicks: the map engine leaves the clicked location empty over server.py's terrain
+      // (?terrain=local), so click handlers get it from clickedGroundPoint(event) instead
+      // (web/picking.js), which works over either terrain.
       window.marsPicking = addGroundPicking(view, { Point });
 
       // ---- Imagery: Murray Lab global CTX mosaic, 5 m/px ----
