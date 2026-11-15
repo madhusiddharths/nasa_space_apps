@@ -4,6 +4,7 @@ Run:  .venv/bin/uvicorn server:app --port 8000 --reload
 """
 import gzip
 from functools import lru_cache
+from pathlib import Path
 from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException, Response
@@ -35,6 +36,17 @@ ice_png = lru_cache(TILES_KEPT)(ice.tile_png)
 radiation_png = lru_cache(2 * TILES_KEPT)(radiation.tile_png)        # two kinds of tile
 
 
+# Tiles of the layers that never change (firmness, ice, radiation), drawn ahead of time by
+# scripts/build_static_tiles.py into the same paths as their addresses. Optional.
+TILES_DIR = Path(__file__).parent / "data/tiles"
+
+
+def _saved(path):
+    """The bytes of a tile drawn ahead of time, or None if it was not (then it is drawn now)."""
+    file = TILES_DIR / path
+    return file.read_bytes() if file.is_file() else None
+
+
 def _png(data):
     return Response(data, media_type="image/png", headers=tiles.CACHE_HEADERS)
 
@@ -64,7 +76,7 @@ def contour_tile(level: int, row: int, col: int):
 
 @app.get("/firmness/{level}/{row}/{col}.png")
 def firmness_tile(level: int, row: int, col: int):
-    return _png(firmness_png(level, row, col))
+    return _png(_saved(f"firmness/{level}/{row}/{col}.png") or firmness_png(level, row, col))
 
 
 @app.get("/firmness/legend")
@@ -102,7 +114,7 @@ def temperature_point(lon: float, lat: float, ls: float = 0):
 
 @app.get("/ice/{level}/{row}/{col}.png")
 def ice_tile(level: int, row: int, col: int):
-    return _png(ice_png(level, row, col))
+    return _png(_saved(f"ice/{level}/{row}/{col}.png") or ice_png(level, row, col))
 
 
 @app.get("/ice/legend")
@@ -116,7 +128,7 @@ def ice_legend():
 def radiation_tile(kind: str, level: int, row: int, col: int):
     if kind not in ("dose", "shelter"):
         raise HTTPException(404, "kind must be 'dose' or 'shelter'")
-    return _png(radiation_png(kind, level, row, col))
+    return _png(_saved(f"radiation/tiles/{kind}/{level}/{row}/{col}.png") or radiation_png(kind, level, row, col))
 
 
 @app.get("/radiation/point")
