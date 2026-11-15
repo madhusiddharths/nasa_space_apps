@@ -363,6 +363,40 @@ body { display: grid; grid-template-columns: 60px auto minmax(0, 1fr); grid-temp
 #tempPanel svg text { fill: var(--holo-dim); font-size: 10px; }
 #tempPanel .tip { min-height: 1.4em; font-size: 12px; color: var(--holo-bright); }
 
+/* ---------- Immersive view (web/immersive.js) ---------- */
+
+/* Its panel in the dock. dock-panel carries the pieces a panel needs without its id. */
+.dock-panel { padding: 14px; font-size: 13px; line-height: 1.4; box-sizing: border-box; }
+.dock-panel h3 { margin: 0 0 10px; font-size: 16px; font-family: var(--holo-font-caps); letter-spacing: 0.12em; text-transform: uppercase; font-weight: 500; color: var(--holo-bright); text-shadow: var(--holo-glow); }
+.dock-panel button, #immersivePad button {
+  padding: 5px 9px; border: 1px solid var(--holo-line-strong); background: transparent; color: var(--holo-cyan); cursor: pointer;
+  border-radius: 0; font: inherit; font-family: var(--holo-font-caps); letter-spacing: 0.08em; text-transform: uppercase;
+  transition: background 120ms, color 120ms;
+}
+.dock-panel button:hover, #immersivePad button:hover { background: var(--holo-raise-strong); color: var(--holo-bright); }
+.dock-panel button:focus-visible, #immersivePad button:focus-visible { outline: 1px solid var(--holo-bright); outline-offset: 1px; }
+.dock-panel .row { display: flex; gap: 8px; margin-top: 10px; }
+.dock-panel .row > * { flex: 1; min-width: 0; }
+.dock-panel .hint { color: var(--holo-dim); }
+.dock-panel table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+.dock-panel td { padding: 3px 0; border-bottom: 1px solid var(--holo-line); color: var(--holo-text); }
+.dock-panel tr:last-child td { border-bottom: none; }
+.dock-panel td:last-child { text-align: right; color: var(--holo-bright); }
+.dock-panel .note { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--holo-line); font-size: 11px; color: var(--holo-dim); }
+.dock-panel [hidden] { display: none; }
+
+/* The six movement buttons, over the map while standing on the ground. A held button is lit. */
+#immersivePad { display: grid; grid-template-columns: repeat(3, 44px); grid-auto-rows: 36px; gap: 4px; padding: 8px; user-select: none; touch-action: none; }
+#immersivePad[hidden] { display: none; }
+#immersivePad button { padding: 0; font-size: 12px; }
+#immersivePad button:active { background: var(--holo-cyan); color: var(--holo-bg-solid); border-color: var(--holo-cyan); box-shadow: var(--holo-glow); }
+
+/* On the ground only the six buttons move the camera: the map's own controls are put away. */
+#viewDiv.is-standing .esri-zoom, #viewDiv.is-standing .esri-compass, #viewDiv.is-standing .esri-navigation-toggle { display: none; }
+
+/* Modes locked while immersive view is on. */
+#rail button:disabled, #rail button:disabled:hover { color: var(--holo-dim); background: none; opacity: 0.35; cursor: default; }
+
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }

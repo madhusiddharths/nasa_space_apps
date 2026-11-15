@@ -43,14 +43,16 @@ The page is four fixed regions (`web/layout.js`, styled in the "Layout" section 
 +---------------------------------------------------+
 ```
 
-- **Rail** (left edge): one button per mode: Route, Layers, Temp, Places, Tools. The open
+- **Rail** (left edge): one button per mode: Route, Immersive, Layers, Temp, Places, Tools. The open
   mode is lit. Clicking it again closes the dock and gives the map the full width.
 - **Dock** (beside the rail, 372 px): shows the open mode's panel, full height, scrolling if
   long. Content inside the dock is flat: no borders, brackets or shadows of its own, because
   the dock is the surface. Sections inside a panel have a capital-letter heading and a
   hairline between them.
 - **Map**: nothing floats over it except the legends (top right, only for layers that are
-  on), the zoom, compass and pan/rotate controls (bottom right), and the Esri credit line.
+  on), the zoom, compass and pan/rotate controls (bottom right), the Esri credit line, and,
+  while standing on the ground in the immersive view, its six movement buttons (bottom
+  right, in place of the map controls).
 - **Status strip** (bottom): position and elevation under the cursor, view height, and for
   the last clicked spot the day's ground temperature range and the radiation dose.
 - **There is no top bar,** and no pop-out buttons over the map. Do not add either.
@@ -140,6 +142,10 @@ Fonts load from Google Fonts in `index.html`, with Segoe UI and the system font 
     (water ice, topography, ground firmness).
 
   Labels follow the line: bright on a dark edge, or dark on a bright edge.
+- **The immersive view** (`web/immersive.js`) shows the imagery only, under a butterscotch
+  sky (`MARS_SKY`): that colour is part of the scene, not of the interface, and is used
+  nowhere else. While the mode is on, the other rail buttons are disabled (dimmed), except
+  Places.
 - **Bare ground is dark** (`surfaceColor` in `index.html`), so with the imagery switched off
   the overlays read as a holographic terrain model.
 - **The layer stack, top down:** the route; marker and outline layers (traverses, feature
@@ -160,7 +166,9 @@ Fonts load from Google Fonts in `index.html`, with Segoe UI and the system font 
   draws above the contour lines.
 - **A new panel:** build the HTML in its own `web/*.js` file, append it to the dock element
   it is given (see Layout), give it an id, and add its styles as a new section in
-  `theme.css` using the tokens and the components above. Copy the structure of `#routePanel`.
+  `theme.css` using the tokens and the components above. Copy the structure of `#routePanel`,
+  or give the panel the class `dock-panel` (the immersive panel does), which carries the
+  same pieces without the panel's id.
 - **A new colour or font:** add a token first, and add it to the table above.
 
 ## Words

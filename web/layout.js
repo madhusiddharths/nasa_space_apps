@@ -11,6 +11,7 @@ const formatPosition = (lon, lat) => `${Math.abs(lat).toFixed(3)}°${lat < 0 ? "
 // The modes, in rail order: key, label under the icon, Esri icon class, panel title for screen readers.
 const DOCK_MODES = [
   ["route", "Route", "esri-icon-directions", "Route planner"],
+  ["immersive", "Immersive", "esri-icon-visible", "Immersive view"],
   ["layers", "Layers", "esri-icon-layers", "Map layers"],
   ["temperature", "Temp", "esri-icon-environment-settings", "Surface temperature"],
   ["places", "Places", "esri-icon-map-pin", "Places"],

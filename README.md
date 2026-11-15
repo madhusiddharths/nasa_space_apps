@@ -62,7 +62,16 @@ reach (marked P). Its range on flat ground and the most walking allowed are fiel
 used, climb, steepest and coldest ground, radiation dose and its hazards. The numbers and where
 they come from are at the top of `routing.py`; they are planning numbers, not NASA limits.
 
-Planned: round trips.
+**Immersive view.** Open "Immersive" in the rail. The mode switches everything off except the
+CTX imagery, locks the other modes in the rail (Places stays open) and zooms out to the whole
+planet. Turn Mars around, zoom in, or fly to a place with Places, then click the spot to stand
+on: the camera drops to 5 m above the ground there, under a dusty Mars sky. Drag to look
+around, scroll to zoom, and move with the six buttons at the bottom of the view (forward,
+back, left, right, up, down; hold one to keep moving: 150 m/s over the ground when close to it,
+faster the higher you are, and 50 m/s up and down). Nothing else moves the
+camera. "Choose another place" goes back to the globe; "Exit immersive view" puts the layers,
+the rail and the camera back as they were. The imagery is 5 m per pixel on 200 m terrain, so
+the ground at your feet is soft; horizons, crater walls and mountains are what it shows well.
 
 ## Setup
 
@@ -118,6 +127,7 @@ storage bucket. The steps, the settings and what they cost are in [DEPLOY.md](DE
 | `radiation.py` | Radiation dose rate, terrain shelter, dose along a route, map tiles |
 | `routing.py` | Astronaut routing: hazard levels from the layers, safest and quickest walk from A to B |
 | `web/routing.js` | The route planner panel and the route lines on the map |
+| `web/immersive.js` | Immersive view: the camera just above the ground, imagery only, moved with six buttons on the map |
 | `data/` | Large downloaded datasets (gitignored) |
 | `DATA_SOURCES.md` | Every dataset, download links, model assumptions, GIS conventions |
 
