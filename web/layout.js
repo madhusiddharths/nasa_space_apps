@@ -5,6 +5,9 @@
 // index.html calls addDock() first, so every panel has a place to go, and addStatusBar(view)
 // once the view exists. All of it is styled in theme.css.
 
+// How a position is written everywhere in the interface: "4.590°S, 137.442°E".
+const formatPosition = (lon, lat) => `${Math.abs(lat).toFixed(3)}°${lat < 0 ? "S" : "N"}, ${lon.toFixed(3)}°E`;
+
 // The modes, in rail order: key, label under the icon, Esri icon class, panel title for screen readers.
 const DOCK_MODES = [
   ["route", "Route", "esri-icon-directions", "Route planner"],
@@ -55,8 +58,8 @@ function addDock(startMode = "route") {
 // The status strip: what is under the cursor (position, elevation), how high the camera is,
 // and for the last spot clicked the day's ground temperature and the radiation dose.
 // picking is what addGroundPicking returned; season() gives the solar longitude to read
-// temperatures for.
-function addStatusBar(view, { picking, season }) {
+// temperatures for; radiationAt(lon, lat) resolves to the radiation values at a spot, or null.
+function addStatusBar(view, { picking, season, radiationAt }) {
   const bar = document.getElementById("statusBar");
   const item = (key, label) => `<span class="item"><span class="label">${label}</span><span data-key="${key}">–</span></span>`;
   bar.innerHTML = item("position", "Cursor") + item("elevation", "Elevation") + item("height", "View height") +
@@ -64,7 +67,6 @@ function addStatusBar(view, { picking, season }) {
     `<span class="brand">Interplanetary Survival Guide<b>Mars</b></span>`;
   const set = (key, text) => { bar.querySelector(`[data-key="${key}"]`).textContent = text; };
 
-  const position = (lon, lat) => `${Math.abs(lat).toFixed(3)}°${lat < 0 ? "S" : "N"}  ${lon.toFixed(3)}°E`;
   const metres = (m) => `${Math.round(m).toLocaleString("en-US").replace(/,/g, " ").replace("-", "−")} m`;
   const celsius = (k) => `${Math.round(k - 273.15)}`.replace("-", "−");
 
@@ -77,7 +79,7 @@ function addStatusBar(view, { picking, season }) {
     requestAnimationFrame(() => {
       const where = picking.groundPoint(pending.x, pending.y);
       pending = null;
-      set("position", where ? position(where.longitude, where.latitude) : "–");
+      set("position", where ? formatPosition(where.longitude, where.latitude) : "–");
       set("elevation", where ? metres(picking.elevation(where.longitude, where.latitude)) : "–");
     });
   });
@@ -99,7 +101,7 @@ function addStatusBar(view, { picking, season }) {
     fetch(`/temperature/point?${at}&ls=${season()}`).then((r) => (r.ok ? r.json() : null))
       .then((p) => { if (id === request) set("ground", p ? `${celsius(p.min)} to ${celsius(p.max)} °C` : "–"); })
       .catch(() => { if (id === request) set("ground", "–"); });
-    fetch(`/radiation/point?${at}`).then((r) => (r.ok ? r.json() : null))
+    radiationAt(where.longitude, where.latitude)
       .then((p) => { if (id === request) set("dose", p ? `${p.dose_eq_msv_per_day.toFixed(2)} mSv/day` : "–"); })   // modelled inside Gale crater only
       .catch(() => { if (id === request) set("dose", "–"); });
   });

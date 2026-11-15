@@ -20,10 +20,10 @@ question: what is the safest route across the surface for astronauts and rovers?
 - Surface temperature for any season and time of day: a panel with season and local-time
   sliders, daily low / daily high / day-night swing, and a click readout with the 24-hour
   curve of that spot. Needs no download; 100 m detail where a THEMIS tile is downloaded
-- Global CTX imagery at 5 m per pixel, draped over 200 m terrain read from our own copy of
-  the NASA/USGS elevation data
 - Rover traverses (Curiosity, Perseverance), IAU feature names, impact craters
-- Coordinate readout, area measurement, elevation profile, layer list, bookmarks
+- Layer list, place search and saved views, coordinate readout, area measurement and
+  elevation profile, each in a panel opened from the rail on the left edge; a status strip
+  along the bottom reads out the spot under the cursor
 
 **The layer stack.** Three things are drawn, bottom to top: the CTX imagery (on or off), one
 data layer (or none), and the contour lines (on or off). The data layers are the coloured maps

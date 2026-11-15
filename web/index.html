@@ -44,9 +44,9 @@
   </div>
 
   <script>
-    // Base map: same services, layers, widgets and bookmarks as the Murray Lab
-    // CTX SceneView (https://murray-lab.caltech.edu/CTX/V01/SceneView/).
-    // On top of it, our own layers, drawn by server.py from local data.
+    // Base map: the imagery, terrain and reference layers of the Murray Lab CTX SceneView
+    // (https://murray-lab.caltech.edu/CTX/V01/SceneView/). On top of it, our own layers,
+    // drawn by server.py from local data, in our own layout (web/layout.js) and look (theme.css).
     // Coordinate system for EVERYTHING: GCS_Mars_2000_Sphere (wkid 104971),
     // lon -180..180 (east positive), lat -90..90, sphere radius 3396190 m.
     const MARS_WKID = 104971;
@@ -76,7 +76,8 @@
       });
 
       // A layer whose PNG tiles server.py draws at /<path>/<level>/<row>/<col>.png.
-      // Off by default; `levels` is how many zoom levels the server draws. Past the last one
+      // Off by default; `levels` is how many zoom levels the server draws; `Layer` is
+      // ServerTiles or a subclass of it. Past the last one
       // the viewer stretches the tiles it has, so do not declare more levels than add detail:
       // each extra level is four times as many tiles. A tile is 512 px wide and spans
       // 180 / 2^level degrees.
@@ -85,7 +86,7 @@
         properties: { path: null },
         getTileUrl(level, row, col) { return `/${this.path}/${level}/${row}/${col}.png?v=${TILES_VERSION}`; },
       });
-      const serverTiles = (path, levels, properties) => new ServerTiles({
+      const serverTiles = (path, levels, properties, Layer = ServerTiles) => new Layer({
         path,
         spatialReference: { wkid: MARS_WKID },
         fullExtent: MARS_EXTENT,
@@ -322,15 +323,10 @@
             .then((mask) => colourContours(mask, this.style));
         },
       });
-      const contourLayer = new ContourTiles({
-        path: "contours",
+      const contourLayer = serverTiles("contours", 13, {
         title: "Contour Lines (elevation in m)",
         copyright: "Contours: derived from HRSC+MOLA DEM",
-        spatialReference: { wkid: MARS_WKID },
-        fullExtent: MARS_EXTENT,
-        tileInfo: marsTileInfo(13),
-        visible: false,
-      });
+      }, ContourTiles);
 
       // Radiation (radiation.py): modelled dose rate and terrain shelter, Gale crater only.
       // 8 levels: the last one (level 7, 163 m/px) is as fine as the 200 m data.
@@ -499,13 +495,23 @@
       };
       rampLegend("radDoseLegend", radDose);
       rampLegend("radShelterLegend", radShelter);
+      // The radiation values at one spot (null outside the Gale study area). The legend
+      // and the status strip both read a clicked spot; asking twice for the same spot gives
+      // the same answer, so one click is one request to the server.
+      let radiationAsked = null, radiationAnswer = null;
+      const radiationAt = (lon, lat) => {
+        const asked = `lon=${lon}&lat=${lat}`;
+        if (asked !== radiationAsked) {
+          radiationAsked = asked;
+          radiationAnswer = fetch(`/radiation/point?${asked}`).then((r) => (r.ok ? r.json() : null));
+        }
+        return radiationAnswer;
+      };
       view.on("click", (event) => {
         const where = shownDataLayer() === radiationGroup && clickedGroundPoint(event);
         if (!where) return;
-        const { longitude: lon, latitude: lat } = where;
         const out = document.getElementById("radPoint");
-        fetch(`/radiation/point?lon=${lon}&lat=${lat}`)
-          .then((r) => (r.ok ? r.json() : null))
+        radiationAt(where.longitude, where.latitude)
           .then((p) => {
             out.innerHTML = p ? `<table>
               <tr><td>Dose rate</td><td>${p.dose_eq_msv_per_day.toFixed(3)} mSv/day</td></tr>
@@ -559,14 +565,14 @@
         window.marsRouting.find(findInput.value).then((found) => {
           if (!found) { findHint.textContent = "Nothing found. Try a crater name, a grid tile such as E136_N-08, or coordinates."; return; }
           const [lon, lat] = found.at;
-          findHint.textContent = `${found.name ? found.name + ": " : ""}${Math.abs(lat).toFixed(3)}°${lat < 0 ? "S" : "N"}, ${lon.toFixed(3)}°E`;
+          findHint.textContent = `${found.name ? found.name + ": " : ""}${formatPosition(lon, lat)}`;
           view.goTo({ target: new Point({ x: lon, y: lat, spatialReference: view.spatialReference }), scale: 1500000, tilt: 45 }, { duration: 1200 })
             .catch((err) => { if (err.name !== "AbortError") console.error(err); });
         });
       });
 
       // Status strip along the bottom (web/layout.js).
-      addStatusBar(view, { picking: window.marsPicking, season: () => window.marsTemperature.state.ls });
+      addStatusBar(view, { picking: window.marsPicking, season: () => window.marsTemperature.state.ls, radiationAt });
 
       // Handles for teammates / console debugging.
       window.marsMap = map;

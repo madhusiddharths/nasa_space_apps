@@ -103,7 +103,7 @@ Lines of light: solid by rover, dotted on foot. P: where the rover is boarded or
   // ---- Helpers ----
   const duration = (minutes) => (minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, "0")} min`);
   const length = (m) => (m < 1000 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).toFixed(1)} km`);
-  const position = (p) => `${Math.abs(p[1]).toFixed(3)}°${p[1] < 0 ? "S" : "N"}, ${p[0].toFixed(3)}°E`;
+  const position = (p) => formatPosition(p[0], p[1]);     // from layout.js
   const wrap = (lon) => +(((lon + 180) % 360 + 360) % 360 - 180).toFixed(7);
   const escapeHtml = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
