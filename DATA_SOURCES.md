@@ -71,6 +71,8 @@ data/
     SWIM4MIM_Ci_5.tif
     polar_surface_ice.geojson
   radiation/            created by radiation.py on first use (cached grids)
+  tiles/                optional, made by scripts/build_static_tiles.py (tiles drawn ahead of time)
+  measurements/         made by scripts/measure_tiles.py
 ```
 
 ## Optional: 100 m temperature detail

@@ -102,11 +102,11 @@ changes under `web/` only need a browser refresh.
 | `temperature_data/` | Small maps and the lookup table `temperature.py` reads (in git, 16 MB) |
 | `web/temperature.js` | The temperature panel and click readout in the viewer |
 | `ice_data/` | The prebuilt water-ice grid `ice.py` reads (in git, 12 MB) |
-| `scripts/` | Rebuild `temperature_data/` and `ice_data/`, check the temperature model against Curiosity, and read the topography legend off the map |
+| `scripts/` | Rebuild `temperature_data/` and `ice_data/`, check the temperature model against Curiosity, read the topography legend off the map, and the speed tools (see "How the map stays fast") |
 | `server.py` | Serves the viewer and each layer's map tiles, legend and values |
-| `tiles.py` | What every layer's tiles share: tiling scheme, tile size, PNG encoding |
+| `tiles.py` | What every layer's tiles share: tiling scheme, tile size, PNG encoding, cache header and version |
 | `elevation.py` | Reads elevation for a lon/lat box, computes slope, cuts terrain tiles |
-| `contours.py` | Draws contour-line map tiles from the elevation file |
+| `contours.py` | Draws contour-line map tiles from the elevation file, as masks the viewer colours |
 | `firmness.py` | Reads thermal inertia for a lon/lat box, classifies ground firmness, draws its map tiles |
 | `ice.py` | Reads the water-ice depth classes for a lon/lat box from `ice_data/`, draws its map tiles |
 | `radiation.py` | Radiation dose rate, terrain shelter, dose along a route, map tiles |
@@ -227,14 +227,45 @@ Every threshold, speed and penalty is a planning number chosen by the team, at t
 `routing.py`; none is a NASA limit. Slopes are averages over 200 m, so short cliffs and boulders
 are not seen, and "unavoidable" means within the searched area around A and B.
 
+## How the map stays fast
+
+Every map tile is drawn in Python on request, so the work is in not drawing a tile twice.
+
+- **Browsers keep tiles for a day.** Every tile response carries `Cache-Control: public,
+  max-age=86400`, and every tile address ends in `?v=` plus `TILES_VERSION` from `tiles.py`.
+  **When you change how any tile looks, raise `TILES_VERSION`**, or browsers go on showing
+  the tiles they saved.
+- **The server keeps the tiles it has drawn** in memory (the last 200 per layer, in
+  `server.py`), so a place several people look at is drawn once.
+- **Contour lines are coloured in the browser.** `contours.py` sends one colourless mask per
+  tile and `index.html` colours it blue, light or dark, so switching the data layer does not
+  draw the contours again.
+- **Terrain tiles are 16-bit integers, gzip-compressed:** about 100 KB each instead of 264 KB.
+- **No layer declares more zoom levels than add detail** (`serverTiles(path, levels, ...)` in
+  `index.html`). Past the last level the viewer stretches the tiles it has.
+- **Optional: a smaller elevation file.** `python scripts/build_elevation_cog.py` writes a
+  tiled, compressed copy of the elevation data (3.8 GB instead of 15.2 GB, same heights),
+  which `elevation.py` then uses. See [DATA_SOURCES.md](DATA_SOURCES.md).
+- **Optional: tiles drawn ahead of time.** `python scripts/build_static_tiles.py` draws every
+  tile of the layers that never change (firmness, water ice, radiation) into `data/tiles/`,
+  laid out like the tile addresses. The server sends those files when they exist and draws
+  the tile when they do not. Run it again after changing how one of those layers is drawn.
+- **Experiment: terrain from Esri.** Opening the page with `?terrain=hosted` takes the 3D
+  ground from Esri's public Mars elevation service instead of `server.py`. Off by default.
+
+`python scripts/measure_tiles.py <label>` times every tile endpoint and records the response
+sizes, and prints all saved runs side by side. Run it before and after a change.
+
 ## Adding a layer
 
 1. **Python module** (for raster data): a `read_...(west, south, east, north, shape=None)`
    function like the ones above, and a `tile_png(level, row, col)` that draws one map tile
    using `tiles.bounds()` and `tiles.png()`. `firmness.py` is the shortest example.
-2. **`server.py`:** a `/<name>/{level}/{row}/{col}.png` endpoint that returns the tile.
+2. **`server.py`:** a `/<name>/{level}/{row}/{col}.png` endpoint that returns the tile through
+   `_png()`, which adds the cache header. Copy the firmness endpoint and its `lru_cache` line.
 3. **`web/index.html`:** create the layer where the comment says "New layers go here". It
-   appears in the layer list automatically.
+   appears in the layer list automatically. The number is how many zoom levels to draw: stop
+   where the data runs out of detail (a tile is 512 px wide and spans 180 / 2^level degrees).
 
 ```js
 const myLayer = serverTiles("my-layer", 8, { title: "My layer", opacity: 0.6 });
