@@ -3,6 +3,7 @@
 Run:  .venv/bin/uvicorn server:app --port 8000 --reload
 """
 import gzip
+import threading
 from functools import lru_cache
 from pathlib import Path
 from typing import List, Optional
@@ -170,13 +171,20 @@ def radiation_info():
 
 # ---- Routing (routing.py): the safest and the quickest trip between two points, by rover and on foot ----
 
+# Planning one route takes about 1.1 GB of memory for a few seconds, whatever its length
+# (the search grid is capped at 250,000 cells). One at a time, so two requests arriving
+# together queue up instead of doubling the memory the server needs.
+_one_route = threading.Lock()
+
+
 @app.get("/routing/astronaut")
 def routing_astronaut(from_lon: float, from_lat: float, to_lon: float, to_lat: float,
                       ls: float = 90, local_time: float = 12,
                       range_km: float = routing.ROVER_RANGE_KM, max_walk_km: float = routing.MAX_WALK_KM):
     try:
-        return routing.plan((from_lon, from_lat), (to_lon, to_lat), ls=ls, local_time=local_time,
-                            range_km=range_km, max_walk_km=max_walk_km)
+        with _one_route:
+            return routing.plan((from_lon, from_lat), (to_lon, to_lat), ls=ls, local_time=local_time,
+                                range_km=range_km, max_walk_km=max_walk_km)
     except ValueError as e:
         raise HTTPException(422, str(e))
 

@@ -11,3 +11,11 @@ __pycache__/
 .idea/
 .vscode/
 .DS_Store
+
+# Secrets and account details: never in git. Deploy settings (project ID, bucket, live
+# address) are passed on the command line, not written into files (see DEPLOY.md).
+.env
+.env.*
+*credentials*.json
+*service-account*.json
+*-key.json

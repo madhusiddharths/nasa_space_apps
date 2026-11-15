@@ -10,3 +10,7 @@
   (`web/layout.js`). New controls go in the dock, not in floating widgets over the map.
 - The frontend has no build step: plain files in `web/`, served by `server.py`.
 - What the project is and how to run it: `README.md`. Where the data comes from: `DATA_SOURCES.md`.
+- Never write real Google Cloud details into any file in this repo: no project ID or number,
+  account email, billing account, bucket name, live address, key or token. Use the
+  placeholders in `DEPLOY.md` (`YOUR_PROJECT`, `YOUR_BUCKET`) and pass real values on the
+  command line.

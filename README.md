@@ -89,6 +89,11 @@ layers need no download of their own.
 Open http://localhost:8000. With `--reload` the server restarts when a Python file changes;
 changes under `web/` only need a browser refresh.
 
+## Putting it on the web
+
+The app deploys to Google Cloud Run as one container, with the elevation file read from a
+storage bucket. The steps, the settings and what they cost are in [DEPLOY.md](DEPLOY.md).
+
 ## Project layout
 
 | Path | Role |

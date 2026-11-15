@@ -1,0 +1,16 @@
+# What `gcloud run deploy --source .` uploads to be built (see DEPLOY.md). Without this file
+# gcloud follows .gitignore, which leaves out all of data/, and the build then fails for
+# want of the two small data folders the Dockerfile copies.
+.git
+.gitignore
+.venv/
+.claude/
+.idea/
+.vscode/
+__pycache__/
+*.pyc
+
+# Of data/, only the two small folders the image needs. The elevation file goes to a bucket.
+data/*
+!data/thermal_inertia/
+!data/radiation/

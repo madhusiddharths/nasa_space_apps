@@ -1,0 +1,13 @@
+# Keeps the image small and the build quick: everything is left out except what the
+# Dockerfile copies. The elevation file and the other downloads under data/ stay out.
+*
+!requirements.txt
+!*.py
+!web/
+!ice_data/
+!temperature_data/
+!data/
+data/*
+!data/thermal_inertia/
+!data/radiation/
+**/__pycache__

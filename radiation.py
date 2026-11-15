@@ -139,7 +139,7 @@ def _cached(name, build):
 
 
 def _gale_elevation():
-    if elevation.DEM_PATH.exists():
+    if elevation.DEM_AVAILABLE:
         return elevation.read_elevation(*GALE_BOX, shape=GALE_SHAPE)
 
     def download():
@@ -205,7 +205,7 @@ def dose_grid(west, south, east, north, shape):
     lon, lat = np.meshgrid(lon, lat)
     g = gale()
     blocked = np.nan_to_num(_bilinear(g["sky_blocked"], lon, lat), nan=_anchor()[1])
-    if elevation.DEM_PATH.exists():
+    if elevation.DEM_AVAILABLE:
         z = elevation.read_elevation(west, south, east, north, shape=shape)
     else:
         z = _bilinear(g["elevation"], lon, lat)
@@ -385,7 +385,7 @@ def tile_png(kind, level, row, col):
     in_gale = west < ge and east > gw and south < gn and north > gs
     rgba = np.zeros((TILE_PX, TILE_PX, 4), dtype=np.uint8)
     if kind == "dose":
-        if not in_gale and not elevation.DEM_PATH.exists():
+        if not in_gale and not elevation.DEM_AVAILABLE:
             return _EMPTY
         value = dose_grid(west, south, east, north, (TILE_PX, TILE_PX))
         rgba[..., :3] = _colors((value - DOSE_SCALE[0]) / (DOSE_SCALE[1] - DOSE_SCALE[0]), _VIRIDIS)
