@@ -53,13 +53,13 @@
 
     require([
       "esri/Map", "esri/Camera", "esri/views/SceneView",
-      "esri/layers/BaseElevationLayer", "esri/layers/BaseTileLayer", "esri/layers/support/TileInfo",
+      "esri/layers/BaseElevationLayer", "esri/layers/ElevationLayer", "esri/layers/BaseTileLayer", "esri/layers/support/TileInfo",
       "esri/layers/TileLayer", "esri/layers/FeatureLayer",
       "esri/layers/GeoJSONLayer", "esri/layers/GroupLayer", "esri/layers/GraphicsLayer", "esri/Graphic", "esri/geometry/Point",
       "esri/geometry/coordinateFormatter",
       "esri/widgets/CoordinateConversion", "esri/widgets/LayerList", "esri/widgets/AreaMeasurement3D",
       "esri/widgets/Bookmarks", "esri/widgets/ElevationProfile",
-    ], (Map, Camera, SceneView, BaseElevationLayer, BaseTileLayer, TileInfo, TileLayer, FeatureLayer, GeoJSONLayer, GroupLayer, GraphicsLayer, Graphic, Point, coordinateFormatter,
+    ], (Map, Camera, SceneView, BaseElevationLayer, ElevationLayer, BaseTileLayer, TileInfo, TileLayer, FeatureLayer, GeoJSONLayer, GroupLayer, GraphicsLayer, Graphic, Point, coordinateFormatter,
         CoordinateConversion, LayerList, AreaMeasurement3D, Bookmarks, ElevationProfile) => {
 
       // Tiling scheme of the CTX imagery, for layers served by server.py.
@@ -104,12 +104,21 @@
             .then((buf) => ({ values: Float32Array.from(new Int16Array(buf)), width: 257, height: 257, noDataValue: -32768 }));
         },
       });
-      const marsElevation = new LocalElevationLayer({
-        copyright: "Topography: NASA GSFC, DLR, USGS Astrogeology, JPL",
-        spatialReference: { wkid: MARS_WKID },
-        fullExtent: MARS_EXTENT,
-        tileInfo: marsTileInfo(8),
-      });
+      // Experiment, off by default: with ?terrain=hosted in the page address the ground comes
+      // from Esri's public Mars elevation service instead (the same 200 m model, and the
+      // service the Murray Lab viewer uses), which takes the terrain load off server.py.
+      const hostedTerrain = new URLSearchParams(location.search).get("terrain") === "hosted";
+      const marsElevation = hostedTerrain
+        ? new ElevationLayer({
+          url: "https://astro.arcgis.com/arcgis/rest/services/OnMars/MDEM200M/ImageServer",
+          copyright: "Topography: NASA GSFC, DLR, USGS Astrogeology, JPL, Esri",
+        })
+        : new LocalElevationLayer({
+          copyright: "Topography: NASA GSFC, DLR, USGS Astrogeology, JPL",
+          spatialReference: { wkid: MARS_WKID },
+          fullExtent: MARS_EXTENT,
+          tileInfo: marsTileInfo(8),
+        });
 
       // surfaceColor is what the ground looks like where no imagery layer is switched on:
       // dark, so contour lines and the other overlays read as a holographic terrain model.
