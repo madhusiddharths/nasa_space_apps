@@ -76,7 +76,10 @@
       });
 
       // A layer whose PNG tiles server.py draws at /<path>/<level>/<row>/<col>.png.
-      // Off by default; `levels` is how many zoom levels the server can draw.
+      // Off by default; `levels` is how many zoom levels the server draws. Past the last one
+      // the viewer stretches the tiles it has, so do not declare more levels than add detail:
+      // each extra level is four times as many tiles. A tile is 512 px wide and spans
+      // 180 / 2^level degrees.
       // Browsers keep tiles for a day; ?v= (TILES_VERSION in tiles.py) changes when the tiles do.
       const ServerTiles = BaseTileLayer.createSubclass({
         properties: { path: null },
@@ -232,6 +235,8 @@
       });
 
       // Ground firmness (firmness.py): thermal inertia, 3 km/px, coloured by surface class.
+      // 8 levels although the data is coarse: the classes are cut after the data is smoothed
+      // to the tile, so the deeper levels are what keep the edges between classes sharp.
       const firmnessLayer = serverTiles("firmness", 8, {
         title: "Ground Firmness (thermal inertia)",
         copyright: "Thermal inertia: NASA/MGS/TES, Putzig & Mellon 2007",
@@ -239,6 +244,7 @@
       });
 
       // Water ice (ice.py): depth to the shallowest ice, white on the surface to dark blue deeper.
+      // 8 levels although the ice data is 3 km/px: the tiles are shaded with the 200 m relief.
       const iceLayer = serverTiles("ice", 8, {
         title: "Water Ice (depth to ice)",
         copyright: "Ice: SWIM (Morgan & Putzig et al. 2025), USGS SIM 3292",
@@ -315,7 +321,8 @@
       });
 
       // Radiation (radiation.py): modelled dose rate and terrain shelter, Gale crater only.
-      const radiationTiles = (kind, properties) => serverTiles(`radiation/tiles/${kind}`, 10, {
+      // 8 levels: the last one (level 7, 163 m/px) is as fine as the 200 m data.
+      const radiationTiles = (kind, properties) => serverTiles(`radiation/tiles/${kind}`, 8, {
         copyright: "Radiation: modelled, anchored to NASA/JPL/SwRI Curiosity RAD",
         ...properties,
       });
