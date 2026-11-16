@@ -270,6 +270,47 @@ body { display: grid; grid-template-columns: 60px auto minmax(0, 1fr); grid-temp
   color: var(--holo-bright); border-color: var(--holo-cyan); background: var(--holo-raise-strong); outline: none;
 }
 
+/* The quick tour (web/tutorial.js): a card over the map, a ring around the part of the page
+   a step talks about, and "Guide" at the foot of the rail to open it again. */
+#rail button.help { margin-top: auto; border-top: 1px solid var(--holo-line); }
+#tour { grid-column: 3; grid-row: 1; z-index: 3; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+#tour[hidden], #tourRing[hidden] { display: none; }
+#tour .card { pointer-events: auto; width: 400px; padding: 16px 18px; font-size: 13px; line-height: 1.45; box-sizing: border-box; }
+#tour .count { font-family: var(--holo-font-caps); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--holo-cyan); }
+#tour h3 { margin: 2px 0 10px; font-family: var(--holo-font-caps); font-size: 20px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--holo-bright); text-shadow: var(--holo-glow); }
+#tour table { width: 100%; border-collapse: collapse; }
+#tour td { padding: 5px 0; vertical-align: top; border-bottom: 1px solid var(--holo-line); color: var(--holo-text); }
+#tour tr:last-child td { border-bottom: none; }
+#tour td:first-child { width: 38%; padding-right: 12px; color: var(--holo-bright); }
+#tour .row { display: flex; gap: 8px; margin-top: 14px; }
+#tour .row button {
+  padding: 5px 12px; border: 1px solid var(--holo-line-strong); background: transparent; color: var(--holo-cyan); cursor: pointer;
+  font-family: var(--holo-font-caps); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase;
+  transition: background 120ms, color 120ms;
+}
+#tour .row button:hover { background: var(--holo-raise-strong); color: var(--holo-bright); }
+#tour .row button:focus-visible { outline: 1px solid var(--holo-bright); outline-offset: 1px; }
+#tour .row button:disabled { opacity: 0.35; cursor: default; background: transparent; color: var(--holo-cyan); }
+#tour #tourSkip { margin-right: auto; border-color: var(--holo-line); color: var(--holo-dim); }
+#tour #tourNext { background: var(--holo-cyan); color: var(--holo-bg-solid); border-color: var(--holo-cyan); box-shadow: var(--holo-glow); }
+#tourRing { position: fixed; z-index: 4; box-sizing: border-box; pointer-events: none; border: 1px solid var(--holo-bright); box-shadow: inset 0 0 14px rgba(111, 211, 242, 0.45), 0 0 14px rgba(111, 211, 242, 0.45); }
+
+/* The loading veil: covers the map until its first picture is complete (addLoadingVeil). */
+#mapVeil {
+  grid-column: 3; grid-row: 1; z-index: 2;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: var(--holo-bg-solid); transition: opacity 700ms;
+}
+#mapVeil.is-done { opacity: 0; pointer-events: none; }
+#mapVeil b {
+  font-family: var(--holo-font-caps); font-size: 20px; font-weight: 500; letter-spacing: 0.32em; text-transform: uppercase;
+  color: var(--holo-bright); text-shadow: var(--holo-glow);
+}
+#mapVeil span { font-family: var(--holo-font-caps); font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--holo-cyan); }
+#mapVeil i { position: relative; width: 220px; height: 1px; margin-top: 6px; overflow: hidden; background: var(--holo-line); }
+#mapVeil i::after { content: ""; position: absolute; top: 0; left: 0; width: 70px; height: 1px; background: var(--holo-bright); animation: veil-scan 1.6s linear infinite; }
+@keyframes veil-scan { from { transform: translateX(-70px); } to { transform: translateX(220px); } }
+
 /* The status strip: label in cyan capitals, value in bright figures. */
 #statusBar {
   display: flex; align-items: center; gap: 22px; padding: 0 14px; overflow: hidden; white-space: nowrap;
@@ -363,6 +404,41 @@ body { display: grid; grid-template-columns: 60px auto minmax(0, 1fr); grid-temp
 #tempPanel svg text { fill: var(--holo-dim); font-size: 10px; }
 #tempPanel .tip { min-height: 1.4em; font-size: 12px; color: var(--holo-bright); }
 
+/* ---------- Immersive view (web/immersive.js) ---------- */
+
+/* Its panel in the dock. dock-panel carries the pieces a panel needs without its id. */
+.dock-panel { padding: 14px; font-size: 13px; line-height: 1.4; box-sizing: border-box; }
+.dock-panel h3 { margin: 0 0 10px; font-size: 16px; font-family: var(--holo-font-caps); letter-spacing: 0.12em; text-transform: uppercase; font-weight: 500; color: var(--holo-bright); text-shadow: var(--holo-glow); }
+.dock-panel button, #immersivePad button {
+  padding: 5px 9px; border: 1px solid var(--holo-line-strong); background: transparent; color: var(--holo-cyan); cursor: pointer;
+  border-radius: 0; font: inherit; font-family: var(--holo-font-caps); letter-spacing: 0.08em; text-transform: uppercase;
+  transition: background 120ms, color 120ms;
+}
+.dock-panel button:hover, #immersivePad button:hover { background: var(--holo-raise-strong); color: var(--holo-bright); }
+.dock-panel button:focus-visible, #immersivePad button:focus-visible { outline: 1px solid var(--holo-bright); outline-offset: 1px; }
+.dock-panel .row { display: flex; gap: 8px; margin-top: 10px; }
+.dock-panel .row > * { flex: 1; min-width: 0; }
+.dock-panel .hint { color: var(--holo-dim); }
+.dock-panel table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+.dock-panel td { padding: 3px 0; border-bottom: 1px solid var(--holo-line); color: var(--holo-text); }
+.dock-panel tr:last-child td { border-bottom: none; }
+.dock-panel td:last-child { text-align: right; color: var(--holo-bright); }
+.dock-panel .note { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--holo-line); font-size: 11px; color: var(--holo-dim); }
+.dock-panel [hidden] { display: none; }
+
+/* The six movement buttons, over the map while standing on the ground. A held button is lit. */
+#immersivePad { display: grid; grid-template-columns: repeat(3, 44px); grid-auto-rows: 36px; gap: 4px; padding: 8px; user-select: none; touch-action: none; }
+#immersivePad[hidden] { display: none; }
+#immersivePad button { padding: 0; font-size: 12px; }
+#immersivePad button:active { background: var(--holo-cyan); color: var(--holo-bg-solid); border-color: var(--holo-cyan); box-shadow: var(--holo-glow); }
+
+/* On the ground only the six buttons move the camera: the map's own controls are put away. */
+#viewDiv.is-standing .esri-zoom, #viewDiv.is-standing .esri-compass, #viewDiv.is-standing .esri-navigation-toggle { display: none; }
+
+/* Modes locked while immersive view is on. */
+#rail button:disabled, #rail button:disabled:hover { color: var(--holo-dim); background: none; opacity: 0.35; cursor: default; }
+
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
+  #mapVeil i::after { animation: none; width: 100%; }
 }
