@@ -128,6 +128,7 @@ storage bucket. The steps, the settings and what they cost are in [DEPLOY.md](DE
 | `routing.py` | Astronaut routing: hazard levels from the layers, safest and quickest walk from A to B |
 | `web/routing.js` | The route planner panel and the route lines on the map |
 | `web/immersive.js` | Immersive view: the camera just above the ground, imagery only, moved with six buttons on the map |
+| `web/tutorial.js` | The quick tour of the main controls: on a first visit, and from "Guide" in the rail |
 | `data/` | Large downloaded datasets (gitignored) |
 | `DATA_SOURCES.md` | Every dataset, download links, model assumptions, GIS conventions |
 

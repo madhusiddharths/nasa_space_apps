@@ -53,6 +53,13 @@ The page is four fixed regions (`web/layout.js`, styled in the "Layout" section 
   on), the zoom, compass and pan/rotate controls (bottom right), the Esri credit line, and,
   while standing on the ground in the immersive view, its six movement buttons (bottom
   right, in place of the map controls).
+- **Loading veil**: while the page starts, the map is covered by a plain panel ("Acquiring
+  Mars") that fades out once the imagery and terrain have settled, or after 25 seconds at
+  most. It hides the pieces arriving, and a few seconds in some browsers when the imagery
+  drops out as the terrain arrives.
+- **Quick tour** (`web/tutorial.js`): five short steps on a card over the map, each with a
+  bright ring around the part of the page it describes. It runs on a first visit and from
+  "Guide" at the foot of the rail. When the controls change, change its steps too.
 - **Status strip** (bottom): position and elevation under the cursor, view height, and for
   the last clicked spot the day's ground temperature range and the radiation dose.
 - **There is no top bar,** and no pop-out buttons over the map. Do not add either.

@@ -270,6 +270,47 @@ body { display: grid; grid-template-columns: 60px auto minmax(0, 1fr); grid-temp
   color: var(--holo-bright); border-color: var(--holo-cyan); background: var(--holo-raise-strong); outline: none;
 }
 
+/* The quick tour (web/tutorial.js): a card over the map, a ring around the part of the page
+   a step talks about, and "Guide" at the foot of the rail to open it again. */
+#rail button.help { margin-top: auto; border-top: 1px solid var(--holo-line); }
+#tour { grid-column: 3; grid-row: 1; z-index: 3; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+#tour[hidden], #tourRing[hidden] { display: none; }
+#tour .card { pointer-events: auto; width: 400px; padding: 16px 18px; font-size: 13px; line-height: 1.45; box-sizing: border-box; }
+#tour .count { font-family: var(--holo-font-caps); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--holo-cyan); }
+#tour h3 { margin: 2px 0 10px; font-family: var(--holo-font-caps); font-size: 20px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--holo-bright); text-shadow: var(--holo-glow); }
+#tour table { width: 100%; border-collapse: collapse; }
+#tour td { padding: 5px 0; vertical-align: top; border-bottom: 1px solid var(--holo-line); color: var(--holo-text); }
+#tour tr:last-child td { border-bottom: none; }
+#tour td:first-child { width: 38%; padding-right: 12px; color: var(--holo-bright); }
+#tour .row { display: flex; gap: 8px; margin-top: 14px; }
+#tour .row button {
+  padding: 5px 12px; border: 1px solid var(--holo-line-strong); background: transparent; color: var(--holo-cyan); cursor: pointer;
+  font-family: var(--holo-font-caps); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase;
+  transition: background 120ms, color 120ms;
+}
+#tour .row button:hover { background: var(--holo-raise-strong); color: var(--holo-bright); }
+#tour .row button:focus-visible { outline: 1px solid var(--holo-bright); outline-offset: 1px; }
+#tour .row button:disabled { opacity: 0.35; cursor: default; background: transparent; color: var(--holo-cyan); }
+#tour #tourSkip { margin-right: auto; border-color: var(--holo-line); color: var(--holo-dim); }
+#tour #tourNext { background: var(--holo-cyan); color: var(--holo-bg-solid); border-color: var(--holo-cyan); box-shadow: var(--holo-glow); }
+#tourRing { position: fixed; z-index: 4; box-sizing: border-box; pointer-events: none; border: 1px solid var(--holo-bright); box-shadow: inset 0 0 14px rgba(111, 211, 242, 0.45), 0 0 14px rgba(111, 211, 242, 0.45); }
+
+/* The loading veil: covers the map until its first picture is complete (addLoadingVeil). */
+#mapVeil {
+  grid-column: 3; grid-row: 1; z-index: 2;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: var(--holo-bg-solid); transition: opacity 700ms;
+}
+#mapVeil.is-done { opacity: 0; pointer-events: none; }
+#mapVeil b {
+  font-family: var(--holo-font-caps); font-size: 20px; font-weight: 500; letter-spacing: 0.32em; text-transform: uppercase;
+  color: var(--holo-bright); text-shadow: var(--holo-glow);
+}
+#mapVeil span { font-family: var(--holo-font-caps); font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--holo-cyan); }
+#mapVeil i { position: relative; width: 220px; height: 1px; margin-top: 6px; overflow: hidden; background: var(--holo-line); }
+#mapVeil i::after { content: ""; position: absolute; top: 0; left: 0; width: 70px; height: 1px; background: var(--holo-bright); animation: veil-scan 1.6s linear infinite; }
+@keyframes veil-scan { from { transform: translateX(-70px); } to { transform: translateX(220px); } }
+
 /* The status strip: label in cyan capitals, value in bright figures. */
 #statusBar {
   display: flex; align-items: center; gap: 22px; padding: 0 14px; overflow: hidden; white-space: nowrap;
@@ -399,4 +440,5 @@ body { display: grid; grid-template-columns: 60px auto minmax(0, 1fr); grid-temp
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
+  #mapVeil i::after { animation: none; width: 100%; }
 }

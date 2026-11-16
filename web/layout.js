@@ -3,7 +3,7 @@
 // (Legends and the map controls are placed on the map itself, in index.html.)
 //
 // index.html calls addDock() first, so every panel has a place to go, and addStatusBar(view)
-// once the view exists. All of it is styled in theme.css.
+// and addLoadingVeil(view, imagery) once the view exists. All of it is styled in theme.css.
 
 // How a position is written everywhere in the interface: "4.590°S, 137.442°E".
 const formatPosition = (lon, lat) => `${Math.abs(lat).toFixed(3)}°${lat < 0 ? "S" : "N"}, ${lon.toFixed(3)}°E`;
@@ -54,6 +54,33 @@ function addDock(startMode = "route") {
 
   show(startMode);
   return { panel, slot, show };
+}
+
+// The loading veil: the map is covered (#mapVeil, in index.html) from the moment the page
+// opens until the first picture is complete. While the map starts up, the imagery arrives
+// in pieces, and in some browsers it drops out again for a few seconds when the terrain
+// arrives; the veil keeps that out of sight. It lifts once the imagery and the ground have
+// both been idle for a moment, or after MAX_VEIL_MS whatever happens, so a slow or failed
+// service can never leave the map hidden.
+function addLoadingVeil(view, imagery) {
+  const CALM_MS = 1500, MAX_VEIL_MS = 25000;
+  const veil = document.getElementById("mapVeil");
+  let poll = null, calm = null;
+  const lift = () => {
+    clearInterval(poll);
+    clearTimeout(calm);
+    clearTimeout(limit);
+    veil.classList.add("is-done");               // fades out (theme.css), then leaves the page
+    setTimeout(() => veil.remove(), 800);
+  };
+  const limit = setTimeout(lift, MAX_VEIL_MS);
+  view.whenLayerView(imagery).then((layerView) => {
+    poll = setInterval(() => {
+      const busy = layerView.updating || !view.groundView || view.groundView.updating;
+      if (busy) { clearTimeout(calm); calm = null; }
+      else if (!calm) calm = setTimeout(lift, CALM_MS);
+    }, 150);
+  }).catch(lift);
 }
 
 // The status strip: what is under the cursor (position, elevation), how high the camera is,

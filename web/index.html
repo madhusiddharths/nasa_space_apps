@@ -17,12 +17,19 @@
   <script src="temperature.js"></script>
   <script src="routing.js"></script>
   <script src="immersive.js"></script>
+  <script src="tutorial.js"></script>
 </head>
 <body>
   <!-- Layout (web/layout.js): a rail of modes, one docked panel, the map, and a status strip. -->
   <nav id="rail" aria-label="Modes"></nav>
   <aside id="dock"></aside>
   <div id="viewDiv"></div>
+  <!-- Covers the map while it loads; lifted by addLoadingVeil (web/layout.js). -->
+  <div id="mapVeil" role="status">
+    <b>Acquiring Mars</b>
+    <span>Loading imagery and terrain</span>
+    <i aria-hidden="true"></i>
+  </div>
   <footer id="statusBar"></footer>
   <!-- Radiation legend. The scale ends mirror DOSE_SCALE and SHELTER_SCALE in radiation.py. -->
   <div id="radiationLegend" class="legend" hidden>
@@ -393,6 +400,7 @@
         if (visible) DATA_LAYERS.forEach((other) => { if (other !== layer) other.visible = false; });
       }));
       const ctxLayer = map.layers.getItemAt(0);
+      addLoadingVeil(view, ctxLayer);             // the map stays covered until imagery and terrain have settled
       map.addMany([dataGroup, contourLayer]);
       map.reorder(dataGroup, 1);                  // straight above the imagery
       map.reorder(contourLayer, 2);               // straight above the data layer
@@ -581,6 +589,9 @@
 
       // Status strip along the bottom (web/layout.js).
       addStatusBar(view, { picking: window.marsPicking, season: () => window.marsTemperature.state.ls, radiationAt });
+
+      // A quick tour of the main controls: on a first visit, and from "Guide" in the rail (web/tutorial.js).
+      window.marsTutorial = addTutorial(dock);
 
       // Handles for teammates / console debugging.
       window.marsMap = map;
